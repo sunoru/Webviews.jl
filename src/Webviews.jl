@@ -1,8 +1,9 @@
 # Wrappers for https://github.com/webview/webview
 module Webviews
 
-using Pkg.Artifacts
-using JSON
+using Libdl: Libdl
+using Downloads: Downloads
+using JSON: JSON
 
 export Webview,
     terminate,
@@ -21,7 +22,55 @@ export WindowSizeHint,
     WEBVIEW_HINT_MAX,
     WEBVIEW_HINT_FIXED
 
-const libwebview = readdir(artifact"libwebview", join=true)[end]
+const LIBWEBVIEW_VERSION = v"0.7.4"
+const libwebview = let hp = Base.BinaryPlatforms.HostPlatform()
+    osarch = Base.BinaryPlatforms.os(hp), Base.BinaryPlatforms.arch(hp)
+    joinpath(
+        @__DIR__, "..", "libs",
+        if osarch == ("linux", "x86_64")
+            "libwebview.so"
+        elseif osarch == ("windows", "x86_64")
+            "webview.dll"
+        elseif osarch == ("macos", "x86_64")
+            "libwebview.x86_64.dylib"
+        elseif osarch == ("macos", "aarch64")
+            "libwebview.aarch64.dylib"
+        else
+            error("Unsupported platform: $(osarch)")
+        end
+    ) |> abspath
+end
+
+function download_libwebview(force=false)
+    if !force && isfile(libwebview)
+        return libwebview
+    end
+    mkpath(dirname(libwebview))
+    filename = basename(libwebview)
+    @debug "Downloading $filename"
+    Downloads.download(
+        "https://github.com/webview/webview_deno/releases/download/$LIBWEBVIEW_VERSION/$filename",
+        libwebview
+    )
+end
+
+function _check_dependency()
+    hdl = nothing
+    try
+        hdl = Libdl.dlopen(libwebview)
+    catch e
+        @warn "Failed to load $libwebview"
+        @error e
+    finally
+        Libdl.dlclose(hdl)
+    end
+end
+
+function __init__()
+    download_libwebview()
+    _check_dependency()
+    nothing
+end
 
 @enum WindowSizeHint begin
     WEBVIEW_HINT_NONE = 0 # Width and height are default size
