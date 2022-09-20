@@ -1,7 +1,7 @@
 name = "Webviews"
 uuid = "b7e775b7-052a-4229-9250-fe08ae90f9c6"
-authors = ["スノル <s@sunoru.com>"]
-version = "1.0.0"
+authors = ["Sunoru <s@sunoru.com>"]
+version = "0.1.0"
 
 [deps]
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
