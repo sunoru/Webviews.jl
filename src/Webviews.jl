@@ -45,8 +45,15 @@ function download_libwebview(force=false)
     if !force && isfile(libwebview)
         return libwebview
     end
-    mkpath(dirname(libwebview))
+    dir = dirname(libwebview)
+    mkpath(dir)
     filename = basename(libwebview)
+    base = "https://github.com/webview/webview_deno/releases/download/$LIBWEBVIEW_VERSION"
+    if filename == "webview.dll"
+        loader = "WebView2Loader.dll"
+        @debug "Downloading $loader"
+        Downloads.download("$base/$loader", joinpath(dir, loader))
+    end
     @debug "Downloading $filename"
     Downloads.download(
         "https://github.com/webview/webview_deno/releases/download/$LIBWEBVIEW_VERSION/$filename",
@@ -58,9 +65,10 @@ function _check_dependency()
     hdl = nothing
     try
         hdl = Libdl.dlopen(libwebview)
-    catch e
+        return true
+    catch
         @warn "Failed to load $libwebview"
-        @error e
+        return false
     finally
         Libdl.dlclose(hdl)
     end
