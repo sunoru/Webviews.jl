@@ -18,12 +18,12 @@ jobs:
       matrix:
         julia-version: ["1.8"]
         julia-arch: [x64]
-        # os: [ubuntu-latest, macOS-latest, windows-latest]
-        # https://github.com/JuliaLang/julia/pull/45582
         os: [macOS-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            prefix: xvfb-run
+        # https://github.com/JuliaLang/julia/pull/45582
+        # os: [ubuntu-latest, macOS-latest, windows-latest]
+        # include:
+        #   - os: ubuntu-latest
+        #     prefix: xvfb-run
 
     steps:
       - name: Checkout repository
