@@ -4,7 +4,7 @@ git-tree-sha1 = "0908e089b8c67895a7bbc16a923d93cbce25d12a"
 os = "linux"
 
     [[libwebview.download]]
-    url = "https://github.com/sunoru/Webviews.jl/releases/download/v1.0.0/libwebview-linux-x64.tar.gz"
+    url = "https://github.com/sunoru/Webviews.jl/releases/download/v0.1.0-libs/libwebview-0.7.4-linux-x64.tar.gz"
     sha256 = "d455fab32b58b8c3d328c0f6837caff94c53220ed6507038a4234d0984a19a63"
 
 [[libwebview]]
@@ -13,7 +13,7 @@ git-tree-sha1 = "7fb2daae1c9b555d4a90120f1c4433d87833d09c"
 os = "macos"
 
     [[libwebview.download]]
-    url = "https://github.com/sunoru/Webviews.jl/releases/download/v1.0.0/libwebview-mac64.tar.gz"
+    url = "https://github.com/sunoru/Webviews.jl/releases/download/v0.1.0-libs/libwebview-0.7.4-mac64.tar.gz"
     sha256 = "728f51267968e2c33f992aa5188e0681e28c3915648cbd08e90887a170c53252"
 
 [[libwebview]]
@@ -22,7 +22,7 @@ git-tree-sha1 = "1d84e3da5962efaf9b991fe8131a685c76a13cab"
 os = "macos"
 
     [[libwebview.download]]
-    url = "https://github.com/sunoru/Webviews.jl/releases/download/v1.0.0/libwebview-macaarch64.tar.gz"
+    url = "https://github.com/sunoru/Webviews.jl/releases/download/v0.1.0-libs/libwebview-0.7.4-macaarch64.tar.gz"
     sha256 = "8364dfc2cc9264f3d191c9a6d3ec2806ee4d1c576fa74495b5bed85ad4f44c6e"
 
 [[libwebview]]
@@ -31,5 +31,5 @@ git-tree-sha1 = "5ce579e09ab42bbd7cac7d02005944150c1c98d4"
 os = "windows"
 
     [[libwebview.download]]
-    url = "https://github.com/sunoru/Webviews.jl/releases/download/v1.0.0/libwebview-macaarch64.tar.gz"
+    url = "https://github.com/sunoru/Webviews.jl/releases/download/v0.1.0-libs/libwebview-0.7.4-win64.tar.gz"
     sha256 = "23c5ab021f7ceab37b180c8374f728375f573f299dff4d8256c7370f5e8a2b8c"
