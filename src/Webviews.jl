@@ -1,6 +1,7 @@
 # Wrappers for https://github.com/webview/webview
 module Webviews
 
+using Pkg.Artifacts
 using JSON
 
 export Webview,
@@ -20,7 +21,7 @@ export WindowSizeHint,
     WEBVIEW_HINT_MAX,
     WEBVIEW_HINT_FIXED
 
-const libwebview = joinpath(@__DIR__, "..", "build", "libwebview.so")
+const libwebview = readdir(artifact"libwebview", join=true)[end]
 
 @enum WindowSizeHint begin
     WEBVIEW_HINT_NONE = 0 # Width and height are default size

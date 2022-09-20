@@ -1,0 +1,39 @@
+name: CI Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  JULIA_DEBUG: NodeCall
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        julia-version: ["1.8"]
+        julia-arch: [x64]
+        # os: [ubuntu-latest, macOS-latest, windows-latest]
+        # https://github.com/JuliaLang/julia/pull/45582
+        os: [macOS-latest, windows-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Julia
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: ${{ matrix.julia-version }}
+          arch: ${{ matrix.julia-arch }}
+      - name: Test
+        uses: julia-actions/julia-runtest@latest
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v3
+        with:
+          file: lcov.info
