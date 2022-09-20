@@ -14,7 +14,7 @@ html = """
   </html>
 """
 
-webview = Webview();
+webview = Webview(540, 360)
 
 html!(webview, html)
 

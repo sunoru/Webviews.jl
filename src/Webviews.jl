@@ -22,28 +22,45 @@ export WindowSizeHint,
 
 const libwebview = joinpath(@__DIR__, "..", "build", "libwebview.so")
 
+@enum WindowSizeHint begin
+    WEBVIEW_HINT_NONE = 0 # Width and height are default size
+    WEBVIEW_HINT_MIN = 1 # Width and height are minimum bounds
+    WEBVIEW_HINT_MAX = 2 # Width and height are maximum bounds
+    WEBVIEW_HINT_FIXED = 3 # Window size can not be changed by a user
+end
+
 mutable struct Webview
     const handle::Ptr{Cvoid}
     const callbacks::Dict{String,Base.CFunction}
-    Webview(; debug=false) =
-        finalizer(new(
-            ccall(
-                (:webview_create, libwebview),
-                Ptr{Cvoid},
-                (Cint, Ptr{Cvoid}),
-                debug, C_NULL
-            )
-        , Dict())) do w
-            # TODO: unbind callbacks
-            ccall(
-                (:webview_destroy, libwebview),
-                Cvoid,
-                (Ptr{Cvoid},),
-                w
-            )
-        end
+    size::Tuple{Int32, Int32}
+    size_hint::WindowSizeHint
+    function Webview(
+        size::Tuple{Integer, Integer}=(1024, 768);
+        title::AbstractString="",
+        debug::Bool=false,
+        size_hint::WindowSizeHint=WEBVIEW_HINT_NONE,
+        window_handle::Ptr{Cvoid}=C_NULL
+    )
+        handle = ccall(
+            (:webview_create, libwebview),
+            Ptr{Cvoid},
+            (Cint, Ptr{Cvoid}),
+            debug, window_handle
+        )
+        w = new(handle, Dict(), size, size_hint)
+        resize!(w, size; hint=size_hint)
+        title!(w, title)
+        finalizer(_destroy, w)
+    end
 end
+Webview(width::Integer, height::Integer; kwargs...) = Webview((width, height); kwargs...)
 Base.cconvert(::Type{Ptr{Cvoid}}, w::Webview) = w.handle
+function _destroy(w::Webview)
+    for key in keys(w.callbacks)
+        unbind!(w, key)
+    end
+    ccall((:webview_destroy, libwebview), Cvoid, (Ptr{Cvoid},), w)
+end
 
 Base.run(w::Webview) = ccall(
     (:webview_run, libwebview),
@@ -70,12 +87,16 @@ title!(w::Webview, title::AbstractString) = ccall(
     (Ptr{Cvoid}, Cstring),
     w, title
 )
-
-@enum WindowSizeHint begin
-    WEBVIEW_HINT_NONE = 0 # Width and height are default size
-    WEBVIEW_HINT_MIN = 1 # Width and height are minimum bounds
-    WEBVIEW_HINT_MAX = 2 # Width and height are maximum bounds
-    WEBVIEW_HINT_FIXED = 3 # Window size can not be changed by a user
+Base.resize!(w::Webview, size::Tuple{Integer, Integer}=w.size; hint::WindowSizeHint=w.size_hint) = let (width, height) = size
+    ccall(
+        (:webview_set_size, libwebview),
+        Cvoid,
+        (Ptr{Cvoid}, Cint, Cint, Cint),
+        w, width, height, hint
+    )
+    w.size = size
+    w.size_hint = hint
+    w
 end
 
 navigate!(w::Webview, url::AbstractString) = (ccall(
