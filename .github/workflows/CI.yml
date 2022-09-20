@@ -9,7 +9,7 @@ on:
       - main
 
 env:
-  JULIA_DEBUG: NodeCall
+  JULIA_DEBUG: Webviews
 
 jobs:
   build:
