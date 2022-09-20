@@ -18,14 +18,14 @@ webview = Webview(540, 360)
 
 html!(webview, html)
 
-counter = Ref(0)
+counter = 0
 bind!(webview, "press") do a, b, c
     @show a, b, c
-    Dict("times" => (counter[] += 1))
+    Dict("times" => (global counter += 1))
 end
 bind!(println, webview, "log")
 bind!(webview, "terminate") do
-    terminate!(webview)
+    terminate(webview)
 end
 
 run(webview)

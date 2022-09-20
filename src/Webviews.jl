@@ -4,7 +4,7 @@ module Webviews
 using JSON
 
 export Webview,
-    terminate!,
+    terminate,
     window_handle,
     title!,
     navigate!,
@@ -48,7 +48,8 @@ mutable struct Webview
             debug, window_handle
         )
         w = new(handle, Dict(), size, size_hint)
-        resize!(w, size; hint=size_hint)
+        resize!(w, size)
+        sizehint!(w, size_hint)
         title!(w, title)
         finalizer(_destroy, w)
     end
@@ -68,7 +69,7 @@ Base.run(w::Webview) = ccall(
     (Ptr{Cvoid},),
     w
 )
-terminate!(w::Webview) = ccall(
+terminate(w::Webview) = ccall(
     (:webview_terminate, libwebview),
     Cvoid,
     (Ptr{Cvoid},),
@@ -87,7 +88,9 @@ title!(w::Webview, title::AbstractString) = ccall(
     (Ptr{Cvoid}, Cstring),
     w, title
 )
-Base.resize!(w::Webview, size::Tuple{Integer, Integer}=w.size; hint::WindowSizeHint=w.size_hint) = let (width, height) = size
+Base.resize!(w::Webview, size::Tuple{Integer, Integer}=w.size; hint::WindowSizeHint=(
+    w.size_hint ≡ WEBVIEW_HINT_NONE || w.size_hint ≡ WEBVIEW_HINT_FIXED ? w.size_hint : WEBVIEW_HINT_NONE
+)) = let (width, height) = size
     ccall(
         (:webview_set_size, libwebview),
         Cvoid,
@@ -98,6 +101,7 @@ Base.resize!(w::Webview, size::Tuple{Integer, Integer}=w.size; hint::WindowSizeH
     w.size_hint = hint
     w
 end
+Base.sizehint!(w::Webview, hint::WindowSizeHint) = resize!(w; hint=hint)
 
 navigate!(w::Webview, url::AbstractString) = (ccall(
     (:webview_navigate, libwebview),
@@ -134,12 +138,23 @@ function _raw_bind(@nospecialize(f::Function), w::Webview, name::AbstractString)
     )
     cf
 end
-_return(w::Webview, seq_ptr::Ptr{Cchar}, success::Bool, result) = ccall(
-    (:webview_return, libwebview),
-    Cvoid,
-    (Ptr{Cvoid}, Ptr{Cchar}, Cint, Cstring),
-    w, seq_ptr, !success, JSON.json(result)
-)
+function _return(w::Webview, seq_ptr::Ptr{Cchar}, success::Bool, result)
+    s = try
+        if success
+            JSON.json(result)
+        else
+            throw(result)
+        end
+    catch err
+        JSON.json(sprint(showerror, err))
+    end
+    ccall(
+        (:webview_return, libwebview),
+        Cvoid,
+        (Ptr{Cvoid}, Ptr{Cchar}, Cint, Cstring),
+        w, seq_ptr, !success, s
+    )
+end
 function bind!(f::Function, w::Webview, name::AbstractString)
     function wrapper(seq_ptr::Ptr{Cchar}, req_ptr::Ptr{Cchar}, ::Ptr{Cvoid})
         req = unsafe_string(req_ptr)
