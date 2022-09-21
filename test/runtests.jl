@@ -2,7 +2,7 @@ using Test
 using Webviews
 
 @testset "Webviews.jl" begin
-    webview = Webview(
+    webview = Webview(;
         title="Test",
         debug=true,
         size_hint=WEBVIEW_HINT_MAX
@@ -28,6 +28,4 @@ using Webviews
     init!(webview, "run_test().catch(console.error)")
     navigate!(webview, "data:text/html,$html")
     run(webview)
-    webview = nothing
-    GC.gc()
 end
