@@ -14,7 +14,7 @@ using Webviews
     @test window_handle(webview) != C_NULL
     html = """<html><body><h1>Hello from Julia v$VERSION</h1></body></html>"""
     step = 0
-    bind!(webview, "run_test") do
+    bind(webview, "run_test") do
         step += 1
         if step == 1
             html!(webview, html)
