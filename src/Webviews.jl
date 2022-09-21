@@ -13,8 +13,7 @@ export Webview,
     html!,
     init!,
     eval!,
-    bind!,
-    unbind!
+    unbind
 
 export WindowSizeHint,
     WEBVIEW_HINT_NONE,
@@ -23,23 +22,23 @@ export WindowSizeHint,
     WEBVIEW_HINT_FIXED
 
 const LIBWEBVIEW_VERSION = v"0.7.4"
-const libwebview = let hp = Base.BinaryPlatforms.HostPlatform()
-    osarch = Base.BinaryPlatforms.os(hp), Base.BinaryPlatforms.arch(hp)
-    joinpath(
-        @__DIR__, "..", "libs",
-        if osarch == ("linux", "x86_64")
-            "libwebview.so"
-        elseif osarch == ("windows", "x86_64")
-            "webview.dll"
-        elseif osarch == ("macos", "x86_64")
-            "libwebview.x86_64.dylib"
-        elseif osarch == ("macos", "aarch64")
-            "libwebview.aarch64.dylib"
-        else
-            error("Unsupported platform: $(osarch)")
-        end
-    ) |> abspath
+const HOST_OS_ARCH = let hp = Base.BinaryPlatforms.HostPlatform()
+    Base.BinaryPlatforms.os(hp), Base.BinaryPlatforms.arch(hp)
 end
+const libwebview = joinpath(
+    @__DIR__, "..", "libs",
+    if HOST_OS_ARCH == ("linux", "x86_64")
+        "libwebview.so"
+    elseif HOST_OS_ARCH == ("windows", "x86_64")
+        "webview.dll"
+    elseif HOST_OS_ARCH == ("macos", "x86_64")
+        "libwebview.x86_64.dylib"
+    elseif HOST_OS_ARCH == ("macos", "aarch64")
+        "libwebview.aarch64.dylib"
+    else
+        error("Unsupported platform: $(HOST_OS_ARCH)")
+    end
+) |> abspath
 
 function download_libwebview(force=false)
     if !force && isfile(libwebview)
@@ -47,18 +46,17 @@ function download_libwebview(force=false)
     end
     dir = dirname(libwebview)
     mkpath(dir)
-    filename = basename(libwebview)
-    base = "https://github.com/webview/webview_deno/releases/download/$LIBWEBVIEW_VERSION"
-    if filename == "webview.dll"
-        loader = "WebView2Loader.dll"
-        @debug "Downloading $loader"
-        Downloads.download("$base/$loader", joinpath(dir, loader))
+    dl = (filename) -> begin
+        @debug "Downloading $filename"
+        Downloads.download(
+            "https://github.com/webview/webview_deno/releases/download/$LIBWEBVIEW_VERSION/$filename",
+            joinpath(dir, filename)
+        )
     end
-    @debug "Downloading $filename"
-    Downloads.download(
-        "https://github.com/webview/webview_deno/releases/download/$LIBWEBVIEW_VERSION/$filename",
-        libwebview
-    )
+    if HOST_OS_ARCH[1] == "windows"
+        dl("WebView2Loader.dll")
+    end
+    dl(basename(libwebview))
 end
 
 function _check_dependency()
@@ -116,7 +114,7 @@ Webview(width::Integer, height::Integer; kwargs...) = Webview((width, height); k
 Base.cconvert(::Type{Ptr{Cvoid}}, w::Webview) = w.handle
 function _destroy(w::Webview)
     for key in keys(w.callbacks)
-        unbind!(w, key)
+        unbind(w, key)
     end
     ccall((:webview_destroy, libwebview), Cvoid, (Ptr{Cvoid},), w)
 end
@@ -213,7 +211,7 @@ function _return(w::Webview, seq_ptr::Ptr{Cchar}, success::Bool, result)
         w, seq_ptr, !success, s
     )
 end
-function bind!(f::Function, w::Webview, name::AbstractString)
+function Base.bind(f::Function, w::Webview, name::AbstractString)
     function wrapper(seq_ptr::Ptr{Cchar}, req_ptr::Ptr{Cchar}, ::Ptr{Cvoid})
         req = unsafe_string(req_ptr)
         args = JSON.parse(req)
@@ -228,7 +226,7 @@ function bind!(f::Function, w::Webview, name::AbstractString)
     w.callbacks[name] = cf
     w
 end
-function unbind!(w::Webview, name::AbstractString)
+function unbind(w::Webview, name::AbstractString)
     ccall(
         (:webview_unbind, libwebview),
         Cvoid,
