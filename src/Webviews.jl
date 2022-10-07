@@ -9,6 +9,7 @@ module Webviews
 using Libdl: Libdl
 using Downloads: Downloads
 using JSON: JSON
+using SHA: SHA
 
 export Webview,
     destroy,
@@ -31,20 +32,20 @@ const LIBWEBVIEW_VERSION = v"0.7.4"
 const HOST_OS_ARCH = let hp = Base.BinaryPlatforms.HostPlatform()
     Base.BinaryPlatforms.os(hp), Base.BinaryPlatforms.arch(hp)
 end
-const libwebview = joinpath(
-    @__DIR__, "..", "libs",
-    if HOST_OS_ARCH == ("linux", "x86_64")
-        "libwebview.so"
+const libwebview, LIBWEBVIEW_SHA256SUM = let
+    (f, s) = if HOST_OS_ARCH == ("linux", "x86_64")
+        "libwebview.so", "43b18a86c19db14838c3ef1338daeb2551b0547f8d17026d1c132ee12759ac3e"
     elseif HOST_OS_ARCH == ("windows", "x86_64")
-        "webview.dll"
+        "webview.dll", "2523d5dcac6aed37f8d8d45782322112bea8ccb08ecde644d90a74ce038d7ff9"
     elseif HOST_OS_ARCH == ("macos", "x86_64")
-        "libwebview.x86_64.dylib"
+        "libwebview.x86_64.dylib", "d345593ea6ea97c4877866efdf407355ef6b17b2ebad4271e85804389a0e62e4"
     elseif HOST_OS_ARCH == ("macos", "aarch64")
-        "libwebview.aarch64.dylib"
+        "libwebview.aarch64.dylib", "467b302988aef9acc665fac81c057a46aa6aec107afedd02c0e1fcefee10f91b"
     else
         error("Unsupported platform: $(HOST_OS_ARCH)")
     end
-) |> abspath
+    abspath(joinpath(@__DIR__, "..", "libs", f)), s
+end
 
 function download_libwebview(force=false)
     if !force && isfile(libwebview)
@@ -52,17 +53,18 @@ function download_libwebview(force=false)
     end
     dir = dirname(libwebview)
     mkpath(dir)
-    dl = (filename) -> begin
+    dl = (filename, chksum) -> begin
         @debug "Downloading $filename"
-        Downloads.download(
+        output = Downloads.download(
             "https://github.com/webview/webview_deno/releases/download/$LIBWEBVIEW_VERSION/$filename",
-            joinpath(dir, filename)
         )
+        @assert SHA.sha256(open(output)) |> bytes2hex == chksum "Downloaded file $output does not match checksum"
+        mv(output, joinpath(dir, filename), force=true)
     end
     if HOST_OS_ARCH[1] == "windows"
-        dl("WebView2Loader.dll")
+        dl("WebView2Loader.dll", "184574b9c36b044888644fc1f2b19176e0e76ccc3ddd2f0a5f0d618c88661f86")
     end
-    dl(basename(libwebview))
+    dl(basename(libwebview), LIBWEBVIEW_SHA256SUM)
 end
 
 function _check_dependency()
@@ -101,12 +103,6 @@ Values:
     WEBVIEW_HINT_FIXED = 3
 end
 
-@enum _WebviewState::UInt8 begin
-    _WEBVIEW_RUNNABLE
-    _WEBVIEW_TERMINATED
-    _WEBVIEW_DESTROYED
-end
-
 """
     Webview(size=(1024, 768); title="", debug=false, size_hint=WEBVIEW_HINT_NONE, unsafe_window_handle=C_NULL)
     Webview(width, height; kwargs...)
@@ -121,10 +117,10 @@ a `GtkWindow`, `NSWindow` or `HWND` pointer can be passed here.
 """
 mutable struct Webview
     const handle::Ptr{Cvoid}
-    const callbacks::Dict{String,Base.CFunction}
+    const callbacks::Dict{String, Base.RefValue{Tuple{Webview, Function}}}
     size::Tuple{Int32, Int32}
     size_hint::WindowSizeHint
-    _state::_WebviewState
+    _destroyed::Bool
     function Webview(
         size::Tuple{Integer, Integer}=(1024, 768);
         title::AbstractString="",
@@ -138,7 +134,7 @@ mutable struct Webview
             (Cint, Ptr{Cvoid}),
             debug, unsafe_window_handle
         )
-        w = new(handle, Dict(), size, size_hint, _WEBVIEW_RUNNABLE)
+        w = new(handle, Dict(), size, size_hint, false)
         resize!(w, size)
         sizehint!(w, size_hint)
         title!(w, title)
@@ -153,13 +149,13 @@ Base.cconvert(::Type{Ptr{Cvoid}}, w::Webview) = w.handle
 Destroys the webview and closes the window along with freeing all internal resources.
 """
 function destroy(w::Webview)
-    w._state ≡ _WEBVIEW_DESTROYED && return
+    w._destroyed && return
     for key in keys(w.callbacks)
         unbind(w, key)
     end
     terminate(w)
     ccall((:webview_destroy, libwebview), Cvoid, (Ptr{Cvoid},), w)
-    w._state = _WEBVIEW_DESTROYED
+    w._destroyed = true
     nothing
 end
 
@@ -170,9 +166,7 @@ Run the webview event loop. Runs the main event loop until it's terminated.
 After this function exits, the webview is automatically destroyed.
 """
 function Base.run(w::Webview)
-    if w._state ≢ _WEBVIEW_RUNNABLE
-        throw(ArgumentError("Webview is already destroyed"))
-    end
+    w._destroyed && error("Webview is already destroyed")
     ccall(
         (:webview_run, libwebview),
         Cvoid,
@@ -187,12 +181,7 @@ end
 
 Stops the main loop. It is safe to call this function from another other background thread.
 """
-function terminate(w::Webview)
-    w._state ≢ _WEBVIEW_RUNNABLE && return
-    ccall((:webview_terminate, libwebview), Cvoid, (Ptr{Cvoid},), w)
-    w._state = _WEBVIEW_TERMINATED
-    nothing
-end
+terminate(w::Webview) = ccall((:webview_terminate, libwebview), Cvoid, (Ptr{Cvoid},), w)
 
 """
     window_handle(w::Webview)
@@ -298,14 +287,8 @@ eval!(w::Webview, js::AbstractString) = (ccall(
     w, js
 ); w)
 
-function _raw_bind(@nospecialize(f::Function), w::Webview, name::AbstractString)
+function _raw_bind(f::Function, w::Webview, name::AbstractString)
     cf = @cfunction $f Cvoid (Ptr{Cchar}, Ptr{Cchar}, Ptr{Cvoid})
-    ccall(
-        (:webview_bind, libwebview),
-        Cvoid,
-        (Ptr{Cvoid}, Cstring, Ptr{Cvoid}, Ptr{Cvoid}),
-        w, name, cf, C_NULL
-    )
     cf
 end
 function _return(w::Webview, seq_ptr::Ptr{Cchar}, success::Bool, result)
@@ -324,6 +307,19 @@ function _return(w::Webview, seq_ptr::Ptr{Cchar}, success::Bool, result)
         (Ptr{Cvoid}, Ptr{Cchar}, Cint, Cstring),
         w, seq_ptr, !success, s
     )
+end
+
+function _bind_wrapper(seq_ptr::Ptr{Cchar}, req_ptr::Ptr{Cchar}, p::Ptr{Cvoid})
+    cd = unsafe_pointer_to_objref(Ptr{Base.RefValue{Tuple{Webview, Function}}}(p))
+    w, f = cd[]
+    req = unsafe_string(req_ptr)
+    args = JSON.parse(req)
+    try
+        result = f(args...)
+        _return(w, seq_ptr, true, result)
+    catch err
+        _return(w, seq_ptr, false, err)
+    end
 end
 """
     bind(f::Function, w::Webview, name::AbstractString)
@@ -350,18 +346,15 @@ julia> result
 ```
 """
 function Base.bind(f::Function, w::Webview, name::AbstractString)
-    function wrapper(seq_ptr::Ptr{Cchar}, req_ptr::Ptr{Cchar}, ::Ptr{Cvoid})
-        req = unsafe_string(req_ptr)
-        args = JSON.parse(req)
-        try
-            result = f(args...)
-            _return(w, seq_ptr, true, result)
-        catch err
-            _return(w, seq_ptr, false, err)
-        end
-    end
-    cf = _raw_bind(wrapper, w, name)
-    w.callbacks[name] = cf
+    cf = @cfunction _bind_wrapper Cvoid (Ptr{Cchar}, Ptr{Cchar}, Ptr{Cvoid})
+    cd = Ref{Tuple{Webview, Function}}((w, f))
+    ccall(
+        (:webview_bind, libwebview),
+        Cvoid,
+        (Ptr{Cvoid}, Cstring, Ptr{Cvoid}, Ptr{Cvoid}),
+        w, name, cf, pointer_from_objref(cd)
+    )
+    w.callbacks[name] = cd
     w
 end
 
