@@ -40,7 +40,7 @@ jobs:
           arch: ${{ matrix.julia-arch }}
       - name: Set up dependency on Linux
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install libwebkit2gtk-4.0-dev
+        run: sudo apt-get update && apt-get install libwebkit2gtk-4.0-dev
       - name: Test
         uses: julia-actions/julia-runtest@latest
         with:
