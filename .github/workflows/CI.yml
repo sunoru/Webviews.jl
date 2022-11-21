@@ -16,14 +16,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        julia-version: ["1.8"]
+        julia-version: ["~1.9.0-0"]
         julia-arch: [x64]
-        os: [windows-latest]
+        # os: [windows-latest]
         # https://github.com/JuliaLang/julia/pull/45582
-        # os: [ubuntu-latest, macOS-latest, windows-latest]
-        # include:
-        #   - os: ubuntu-latest
-        #     prefix: xvfb-run
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            prefix: xvfb-run
 
     steps:
       - name: Checkout repository
