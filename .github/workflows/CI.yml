@@ -8,6 +8,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   JULIA_DEBUG: Webviews
 
@@ -15,15 +19,19 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        julia-version: ["1.8"]
+        julia-version: ["1.8", "~1.9.0-0", "nightly"]
         julia-arch: [x64]
-        os: [windows-latest]
-        # https://github.com/JuliaLang/julia/pull/45582
-        # os: [ubuntu-latest, macOS-latest, windows-latest]
-        # include:
-        #   - os: ubuntu-latest
-        #     prefix: xvfb-run
+        os: [ubuntu-latest, windows-latest]  # , macOS-latest]
+        exclude:
+          - os: ubuntu-latest
+            julia-version: "1.8"
+          - os: macOS-latest
+            julia-version: "1.8"
+        include:
+          - os: ubuntu-latest
+            prefix: xvfb-run
 
     steps:
       - name: Checkout repository
@@ -34,6 +42,9 @@ jobs:
         with:
           version: ${{ matrix.julia-version }}
           arch: ${{ matrix.julia-arch }}
+      - name: Set up dependency on Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install libwebkit2gtk-4.0-dev
       - name: Test
         uses: julia-actions/julia-runtest@latest
         with:
