@@ -46,6 +46,18 @@ const libwebview, LIBWEBVIEW_SHA256SUM = let
     end
     abspath(joinpath(@__DIR__, "..", "libs", f)), s
 end
+@enum WebviewPlatform begin
+    WEBVIEW_COCOA
+    WEBVIEW_GTK
+    WEBVIEW_EDGE
+end
+const WEBVIEW_PLATFORM = @static if Sys.isapple()
+    WEBVIEW_COCOA
+elseif Sys.iswindows()
+    WEBVIEW_EDGE
+else
+    WEBVIEW_GTK
+end
 
 function download_libwebview(force=false)
     if !force && isfile(libwebview)
@@ -85,6 +97,7 @@ end
 function __init__()
     download_libwebview()
     _check_dependency()
+    _setup_platform()
     nothing
 end
 
@@ -104,6 +117,15 @@ Values:
     WEBVIEW_HINT_MAX = 2
     WEBVIEW_HINT_FIXED = 3
 end
+
+@static if WEBVIEW_PLATFORM ≡ WEBVIEW_GTK
+    Base.@kwdef mutable struct PlatformSettings
+        timeout_id::Cuint = 0
+    end
+else
+    Base.@kwdef mutable struct PlatformSettings end
+end
+const PLATFORM = PlatformSettings()
 
 """
     Webview(size=(1024, 768); title="", debug=false, size_hint=WEBVIEW_HINT_NONE, unsafe_window_handle=C_NULL)
@@ -159,6 +181,19 @@ function destroy(w::Webview)
     ccall((:webview_destroy, libwebview), Cvoid, (Ptr{Cvoid},), w)
     w._destroyed = true
     nothing
+end
+
+_event_loop_timeout(_::Ptr{Cvoid}) = (yield(); nothing)
+_setup_platform() = @static if Sys.islinux()
+    PLATFORM.timeout_id = ccall(
+        (:g_timeout_add, libwebview),
+        UInt64,
+        (Cuint, Ptr{Cvoid}, Ptr{Cvoid}),
+        20,
+        @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid},)),
+        C_NULL
+    )
+else
 end
 
 """
