@@ -58,7 +58,9 @@ function download_libwebview(force=false)
         output = Downloads.download(
             "https://github.com/webview/webview_deno/releases/download/$LIBWEBVIEW_VERSION/$filename",
         )
-        @assert SHA.sha256(open(output)) |> bytes2hex == chksum "Downloaded file $output does not match checksum"
+        open(output) do io
+            @assert SHA.sha256(io) |> bytes2hex == chksum "Downloaded file $output does not match checksum"
+        end
         mv(output, joinpath(dir, filename), force=true)
     end
     if HOST_OS_ARCH[1] == "windows"
