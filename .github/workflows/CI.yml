@@ -29,9 +29,9 @@ jobs:
         exclude:
           - os: ubuntu-latest
             julia-version: "1.8"
-        include:
-          - os: ubuntu-latest
-            prefix: xvfb-run
+        # include:
+        #   - os: ubuntu-latest
+        #     prefix: xvfb-run
 
     steps:
       - name: Checkout repository
