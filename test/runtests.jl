@@ -15,7 +15,7 @@ using Webviews
     html = """<html><body><h1>Hello from Julia v$VERSION</h1></body></html>"""
     step = 0
     bind(webview, "run_test") do
-        step += 1
+        @show step += 1
         if step == 1
             html!(webview, html)
         elseif step == 2
@@ -27,7 +27,10 @@ using Webviews
         end
         nothing
     end
+    @debug "init"
     init!(webview, "run_test().catch(console.error)")
+    @debug "navigate"
     navigate!(webview, "data:text/html,$html")
+    @debug "run"
     run(webview)
 end
