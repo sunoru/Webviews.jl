@@ -1,25 +1,22 @@
 using Test
+using HTTP
 using Webviews
 
 @testset "Webviews.jl" begin
-    @info "constructor"
     webview = Webview(;
         title="Test",
         debug=true,
         size_hint=WEBVIEW_HINT_MAX
     )
-    @info "resize"
     resize!(webview, (320, 240))
     @test webview.size == (320, 240)
-    @info "sizehint"
     sizehint!(webview, WEBVIEW_HINT_MAX)
     @test webview.size_hint == WEBVIEW_HINT_MAX
-    @info "window_handle"
     @test window_handle(webview) != C_NULL
     html = """<html><body><h1>Hello from Julia v$VERSION</h1></body></html>"""
     step = 0
     bind(webview, "run_test") do
-        @show step += 1
+        step += 1
         if step == 1
             html!(webview, html)
         elseif step == 2
@@ -31,10 +28,7 @@ using Webviews
         end
         nothing
     end
-    @info "init"
     init!(webview, "run_test().catch(console.error)")
-    @info "navigate"
-    navigate!(webview, "data:text/html,$html")
-    @info "run"
+    navigate!(webview, "data:text/html,$(HTTP.escapeuri(html))")
     run(webview)
 end
