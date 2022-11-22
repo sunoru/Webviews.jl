@@ -1,9 +1,10 @@
-```@meta
-DocTestSetup = quote
-    using Webviews
-end
-```
 # Wrappers for https://github.com/webview/webview
+"""
+    Webviews
+
+Julia wrappers for [webview](https://github.com/webview/webview),
+a tiny cross-platform webview library.
+"""
 module Webviews
 
 using Libdl: Libdl
@@ -166,7 +167,7 @@ mutable struct Webview
     size::Tuple{Int32, Int32}
     size_hint::WindowSizeHint
     _destroyed::Bool
-    _platform::InstancePlatformSettings
+    const _platform::InstancePlatformSettings
     function Webview(
         size::Tuple{Integer, Integer}=(1024, 768);
         title::AbstractString="",
@@ -395,10 +396,6 @@ eval!(w::Webview, js::AbstractString) = (ccall(
     w, js
 ); w)
 
-function _raw_bind(f::Function, w::Webview, name::AbstractString)
-    cf = @cfunction $f Cvoid (Ptr{Cchar}, Ptr{Cchar}, Ptr{Cvoid})
-    cf
-end
 function _return(w::Webview, seq_ptr::Ptr{Cchar}, success::Bool, result)
     s = try
         if success
@@ -439,21 +436,6 @@ webview context and the callback automatically converts and returns the
 return value to the webview.
 
 **Note:** The callback function must handle a `Tuple` as its argument.
-
-# Example
-
-```jldoctest
-julia> webview = Webview();
-julia> result = 0;
-julia> bind(webview, "add") do (a, b)
-           global result = a + b
-           terminate(webview)
-       end;
-julia> html!(webview, "<script>add(1, 2)</script>");
-julia> run(webview);
-julia> result
-3
-```
 """
 function Base.bind(f::Function, w::Webview, name::AbstractString)
     cf = @cfunction _bind_wrapper Cvoid (Ptr{Cchar}, Ptr{Cchar}, Ptr{Cvoid})
