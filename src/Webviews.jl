@@ -219,22 +219,21 @@ _setup_platform() = @static if WEBVIEW_PLATFORM ≡ WEBVIEW_GTK
     )
 elseif WEBVIEW_PLATFORM ≡ WEBVIEW_EDGE
 elseif WEBVIEW_PLATFORM ≡ WEBVIEW_COCOA
-    # create `Yielder` class and `tick:timer` method
-    cls = ccall(
-        :objc_allocateClassPair,
-        Ptr{Cvoid}, (Ptr{Cvoid}, Cstring, Csize_t),
-        C_NULL, "WebviewsjlYielder", 0
+    # Register the yielder in the shared `NSApplication`.
+    app = ccall(
+        :objc_msgSend,
+        Ptr{Cvoid},
+        (Ptr{Cvoid}, Ptr{Cvoid}),
+        _a"NSApplication"cls,
+        _a"sharedApplication"sel
     )
-    ccall(:objc_registerClassPair, Cvoid, (Ptr{Cvoid},), cls)
     ccall(
         :class_replaceMethod, Ptr{Cvoid},
         (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Cstring),
-        ccall(:object_getClass, Ptr{Cvoid}, (Ptr{Cvoid},), cls),
-        _a"tick"sel,
+        _a"NSApplication"cls, _a"webviewsjlTick:"sel,
         @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid})),
         "v@:@"
     )
-
     PLATFORM.timer_ptr = ccall(
         :objc_msgSend,
         Ptr{Cvoid},
@@ -242,8 +241,8 @@ elseif WEBVIEW_PLATFORM ≡ WEBVIEW_COCOA
         _a"NSTimer"cls,
         _a"scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:"sel,
         TIMEOUT_INTEVAL / 1000,
-        cls,
-        _a"tick:"sel,
+        app,
+        _a"webviewsjlTick:"sel,
         C_NULL,
         true
     )
