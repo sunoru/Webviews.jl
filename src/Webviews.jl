@@ -352,9 +352,9 @@ function _bind_wrapper(seq_ptr::Ptr{Cchar}, req_ptr::Ptr{Cchar}, p::Ptr{Cvoid})
     cd = unsafe_pointer_to_objref(Ptr{Base.RefValue{Tuple{Webview, Function}}}(p))
     w, f = cd[]
     req = unsafe_string(req_ptr)
-    args = JSON.parse(req)
     try
-        result = f(args...)
+        args = Tuple(JSON.parse(req))
+        result = f(args)
         _return(w, seq_ptr, true, result)
     catch err
         _return(w, seq_ptr, false, err)
@@ -369,12 +369,14 @@ converted from json to as closely as possible match the arguments in the
 webview context and the callback automatically converts and returns the
 return value to the webview.
 
+**Note:** The callback function must handle a `Tuple` as its argument.
+
 # Example
 
 ```jldoctest
 julia> webview = Webview();
 julia> result = 0;
-julia> bind(webview, "add") do a, b
+julia> bind(webview, "add") do (a, b)
            global result = a + b
            terminate(webview)
        end;

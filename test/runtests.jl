@@ -3,6 +3,10 @@ using HTTP
 using Webviews
 
 @testset "Webviews.jl" begin
+    server = HTTP.serve!(8080) do _
+        HTTP.Response("<h1>Hello</h1>")
+    end
+
     webview = Webview(;
         title="Test",
         debug=true,
@@ -15,18 +19,23 @@ using Webviews
     @test window_handle(webview) != C_NULL
     html = """<html><body><h1>Hello from Julia v$VERSION</h1></body></html>"""
     step = 0
-    bind(webview, "run_test") do
+    bind(webview, "run_test") do _
         step += 1
         if step == 1
             html!(webview, html)
         elseif step == 2
-            eval!(webview, "run_test()")
+            navigate!(webview, "http://localhost:8080")
         elseif step == 3
-            # `terminate` does not work on macOS.
-            Webviews.WEBVIEW_PLATFORM ≡ Webviews.WEBVIEW_COCOA && return exit(0)
-            terminate(webview)
+            eval!(webview, "end_test(document.body.innerHTML)")
         end
         nothing
+    end
+    bind(webview, "end_test") do (x,)
+        @test x == "<h1>Hello</h1>"
+        close(server)
+        # `terminate` does not work on macOS.
+        Webviews.WEBVIEW_PLATFORM ≡ Webviews.WEBVIEW_COCOA && return exit(0)
+        terminate(webview)
     end
     init!(webview, "run_test().catch(console.error)")
     navigate!(webview, "data:text/html,$(HTTP.escapeuri(html))")
