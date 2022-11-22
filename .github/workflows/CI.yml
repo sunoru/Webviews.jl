@@ -40,6 +40,8 @@ jobs:
         with:
           version: ${{ matrix.julia-version }}
           arch: ${{ matrix.julia-arch }}
+      - name: Test loadability
+        run: julia --project=@. -e 'using Pkg;Pkg.instantiate();using Webviews'
       - name: Set up dependency on Linux
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install libwebkit2gtk-4.0-dev

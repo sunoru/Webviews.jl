@@ -97,8 +97,9 @@ end
 
 function __init__()
     download_libwebview()
-    _check_dependency()
-    _setup_platform()
+    if _check_dependency()
+        _setup_platform()
+    end
     nothing
 end
 
