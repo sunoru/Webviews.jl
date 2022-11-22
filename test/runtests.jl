@@ -2,15 +2,19 @@ using Test
 using Webviews
 
 @testset "Webviews.jl" begin
+    @debug "constructor"
     webview = Webview(;
         title="Test",
         debug=true,
         size_hint=WEBVIEW_HINT_MAX
     )
+    @debug "resize"
     resize!(webview, (320, 240))
     @test webview.size == (320, 240)
+    @debug "sizehint"
     sizehint!(webview, WEBVIEW_HINT_MAX)
     @test webview.size_hint == WEBVIEW_HINT_MAX
+    @debug "window_handle"
     @test window_handle(webview) != C_NULL
     html = """<html><body><h1>Hello from Julia v$VERSION</h1></body></html>"""
     step = 0
