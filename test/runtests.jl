@@ -21,6 +21,8 @@ using Webviews
         elseif step == 2
             eval!(webview, "run_test()")
         elseif step == 3
+            # `terminate` does not work on macOS.
+            Webviews.WEBVIEW_PLATFORM ≡ Webviews.WEBVIEW_COCOA && return exit(0)
             terminate(webview)
         end
         nothing

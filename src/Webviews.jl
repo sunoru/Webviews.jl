@@ -184,7 +184,7 @@ function destroy(w::Webview)
 end
 
 _event_loop_timeout(_::Ptr{Cvoid}) = (yield(); nothing)
-_setup_platform() = @static if Sys.islinux()
+_setup_platform() = @static if WEBVIEW_PLATFORM ≡ WEBVIEW_GTK
     PLATFORM.timeout_id = ccall(
         (:g_timeout_add, libwebview),
         UInt64,
@@ -217,6 +217,8 @@ end
     terminate(w::Webview)
 
 Stops the main loop. It is safe to call this function from another other background thread.
+
+**Note:** This function is not working on macOS.
 """
 terminate(w::Webview) = ccall((:webview_terminate, libwebview), Cvoid, (Ptr{Cvoid},), w)
 
