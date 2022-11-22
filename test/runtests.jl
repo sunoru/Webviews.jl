@@ -6,7 +6,7 @@ using Webviews
     is_cocoa = Webviews.WEBVIEW_PLATFORM ≡ Webviews.WEBVIEW_COCOA
 
     server = HTTP.serve!(8080) do _
-        HTTP.Response("<h1>Hello</h1>")
+        HTTP.Response("<html><body><h1>Hello</h1></body></html>")
     end
 
     webview = Webview(;
