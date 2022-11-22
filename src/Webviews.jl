@@ -46,6 +46,18 @@ const libwebview, LIBWEBVIEW_SHA256SUM = let
     end
     abspath(joinpath(@__DIR__, "..", "libs", f)), s
 end
+@enum WebviewPlatform begin
+    WEBVIEW_COCOA
+    WEBVIEW_GTK
+    WEBVIEW_EDGE
+end
+const WEBVIEW_PLATFORM = @static if Sys.isapple()
+    WEBVIEW_COCOA
+elseif Sys.iswindows()
+    WEBVIEW_EDGE
+else
+    WEBVIEW_GTK
+end
 
 function download_libwebview(force=false)
     if !force && isfile(libwebview)
@@ -85,6 +97,7 @@ end
 function __init__()
     download_libwebview()
     _check_dependency()
+    _setup_platform()
     nothing
 end
 
@@ -105,6 +118,22 @@ Values:
     WEBVIEW_HINT_FIXED = 3
 end
 
+@static if WEBVIEW_PLATFORM ≡ WEBVIEW_GTK
+    Base.@kwdef mutable struct PlatformSettings
+        timeout_id::Cuint = 0
+    end
+    Base.@kwdef mutable struct InstancePlatformSettings end
+elseif WEBVIEW_PLATFORM ≡ WEBVIEW_EDGE
+    Base.@kwdef mutable struct PlatformSettings end
+    Base.@kwdef mutable struct InstancePlatformSettings
+        timer_id::UInt = 0
+    end
+elseif WEBVIEW_PLATFORM ≡ WEBVIEW_COCOA
+    Base.@kwdef mutable struct PlatformSettings end
+    Base.@kwdef mutable struct InstancePlatformSettings end
+end
+const PLATFORM = PlatformSettings()
+
 """
     Webview(size=(1024, 768); title="", debug=false, size_hint=WEBVIEW_HINT_NONE, unsafe_window_handle=C_NULL)
     Webview(width, height; kwargs...)
@@ -123,6 +152,7 @@ mutable struct Webview
     size::Tuple{Int32, Int32}
     size_hint::WindowSizeHint
     _destroyed::Bool
+    _platform::InstancePlatformSettings
     function Webview(
         size::Tuple{Integer, Integer}=(1024, 768);
         title::AbstractString="",
@@ -136,7 +166,7 @@ mutable struct Webview
             (Cint, Ptr{Cvoid}),
             debug, unsafe_window_handle
         )
-        w = new(handle, Dict(), size, size_hint, false)
+        w = new(handle, Dict(), size, size_hint, false, InstancePlatformSettings())
         resize!(w, size)
         sizehint!(w, size_hint)
         title!(w, title)
@@ -161,6 +191,39 @@ function destroy(w::Webview)
     nothing
 end
 
+_event_loop_timeout(_...) = (yield(); nothing)
+# TODO: what value should we use?
+const TIMEOUT_INTEVAL = 1000 ÷ 30
+_setup_platform() = @static if WEBVIEW_PLATFORM ≡ WEBVIEW_GTK
+    PLATFORM.timeout_id = ccall(
+        (:g_timeout_add, libwebview),
+        UInt64,
+        (Cuint, Ptr{Cvoid}, Ptr{Cvoid}),
+        20,
+        @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid},)),
+        C_NULL
+    )
+elseif WEBVIEW_PLATFORM ≡ WEBVIEW_EDGE
+elseif WEBVIEW_PLATFORM ≡ WEBVIEW_COCOA
+    # TODO: #5
+else
+end
+
+_setup_instance_platform!(w::Webview) = @static if WEBVIEW_PLATFORM ≡ WEBVIEW_GTK
+elseif WEBVIEW_PLATFORM ≡ WEBVIEW_EDGE
+    window = window_handle(w)
+    w._platform.timer_id = ccall(
+        (:SetTimer, "user32"),
+        UInt,
+        (Ptr{Cvoid}, UInt, Cuint, Ptr{Cvoid}),
+        window,
+        0,
+        TIMEOUT_INTEVAL,
+        @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid}, Cuint, UInt, UInt32))
+    )
+elseif WEBVIEW_PLATFORM ≡ WEBVIEW_COCOA
+end
+
 """
     run(w::Webview)
 
@@ -168,6 +231,7 @@ Run the webview event loop. Runs the main event loop until it's terminated.
 After this function exits, the webview is automatically destroyed.
 """
 function Base.run(w::Webview)
+    _setup_instance_platform!(w)
     w._destroyed && error("Webview is already destroyed")
     ccall(
         (:webview_run, libwebview),
@@ -182,6 +246,8 @@ end
     terminate(w::Webview)
 
 Stops the main loop. It is safe to call this function from another other background thread.
+
+**Note:** This function is not working on macOS.
 """
 terminate(w::Webview) = ccall((:webview_terminate, libwebview), Cvoid, (Ptr{Cvoid},), w)
 
@@ -315,9 +381,9 @@ function _bind_wrapper(seq_ptr::Ptr{Cchar}, req_ptr::Ptr{Cchar}, p::Ptr{Cvoid})
     cd = unsafe_pointer_to_objref(Ptr{Base.RefValue{Tuple{Webview, Function}}}(p))
     w, f = cd[]
     req = unsafe_string(req_ptr)
-    args = JSON.parse(req)
     try
-        result = f(args...)
+        args = Tuple(JSON.parse(req))
+        result = f(args)
         _return(w, seq_ptr, true, result)
     catch err
         _return(w, seq_ptr, false, err)
@@ -332,12 +398,14 @@ converted from json to as closely as possible match the arguments in the
 webview context and the callback automatically converts and returns the
 return value to the webview.
 
+**Note:** The callback function must handle a `Tuple` as its argument.
+
 # Example
 
 ```jldoctest
 julia> webview = Webview();
 julia> result = 0;
-julia> bind(webview, "add") do a, b
+julia> bind(webview, "add") do (a, b)
            global result = a + b
            terminate(webview)
        end;
