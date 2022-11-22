@@ -122,8 +122,15 @@ end
     Base.@kwdef mutable struct PlatformSettings
         timeout_id::Cuint = 0
     end
-else
+    Base.@kwdef mutable struct InstancePlatformSettings end
+elseif WEBVIEW_PLATFORM ≡ WEBVIEW_EDGE
     Base.@kwdef mutable struct PlatformSettings end
+    Base.@kwdef mutable struct InstancePlatformSettings
+        timer_id::UInt = 0
+    end
+elseif WEBVIEW_PLATFORM ≡ WEBVIEW_COCOA
+    Base.@kwdef mutable struct PlatformSettings end
+    Base.@kwdef mutable struct InstancePlatformSettings end
 end
 const PLATFORM = PlatformSettings()
 
@@ -145,6 +152,7 @@ mutable struct Webview
     size::Tuple{Int32, Int32}
     size_hint::WindowSizeHint
     _destroyed::Bool
+    _platform::InstancePlatformSettings
     function Webview(
         size::Tuple{Integer, Integer}=(1024, 768);
         title::AbstractString="",
@@ -158,7 +166,7 @@ mutable struct Webview
             (Cint, Ptr{Cvoid}),
             debug, unsafe_window_handle
         )
-        w = new(handle, Dict(), size, size_hint, false)
+        w = new(handle, Dict(), size, size_hint, false, InstancePlatformSettings())
         resize!(w, size)
         sizehint!(w, size_hint)
         title!(w, title)
@@ -183,7 +191,9 @@ function destroy(w::Webview)
     nothing
 end
 
-_event_loop_timeout(_::Ptr{Cvoid}) = (yield(); nothing)
+_event_loop_timeout(_...) = (yield(); nothing)
+# TODO: what value should we use?
+const TIMEOUT_INTEVAL = 1000 ÷ 30
 _setup_platform() = @static if WEBVIEW_PLATFORM ≡ WEBVIEW_GTK
     PLATFORM.timeout_id = ccall(
         (:g_timeout_add, libwebview),
@@ -193,7 +203,25 @@ _setup_platform() = @static if WEBVIEW_PLATFORM ≡ WEBVIEW_GTK
         @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid},)),
         C_NULL
     )
+elseif WEBVIEW_PLATFORM ≡ WEBVIEW_EDGE
+elseif WEBVIEW_PLATFORM ≡ WEBVIEW_COCOA
+    # TODO: #5
 else
+end
+
+_setup_instance_platform!(w::Webview) = @static if WEBVIEW_PLATFORM ≡ WEBVIEW_GTK
+elseif WEBVIEW_PLATFORM ≡ WEBVIEW_EDGE
+    window = window_handle(w)
+    w._platform.timer_id = ccall(
+        (:SetTimer, "user32"),
+        UInt,
+        (Ptr{Cvoid}, UInt, Cuint, Ptr{Cvoid}),
+        window,
+        0,
+        TIMEOUT_INTEVAL,
+        @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid}, Cuint, UInt, UInt32))
+    )
+elseif WEBVIEW_PLATFORM ≡ WEBVIEW_COCOA
 end
 
 """
@@ -203,6 +231,7 @@ Run the webview event loop. Runs the main event loop until it's terminated.
 After this function exits, the webview is automatically destroyed.
 """
 function Base.run(w::Webview)
+    _setup_instance_platform!(w)
     w._destroyed && error("Webview is already destroyed")
     ccall(
         (:webview_run, libwebview),
