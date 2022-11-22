@@ -129,8 +129,22 @@ elseif WEBVIEW_PLATFORM ≡ WEBVIEW_EDGE
         timer_id::UInt = 0
     end
 elseif WEBVIEW_PLATFORM ≡ WEBVIEW_COCOA
-    Base.@kwdef mutable struct PlatformSettings end
+    Base.@kwdef mutable struct PlatformSettings
+        timer_ptr::Ptr{Cvoid} = C_NULL
+    end
     Base.@kwdef mutable struct InstancePlatformSettings end
+    macro _a_str(s, ss)
+        func = if ss == "sel"
+            :sel_registerName
+        elseif ss == "cls"
+            :objc_getClass
+        else
+            error("Unknown selector type: $ss")
+        end |> QuoteNode
+        quote
+            ccall($func, Ptr{Cvoid}, (Cstring,), $s)
+        end
+    end
 end
 const PLATFORM = PlatformSettings()
 
@@ -205,7 +219,34 @@ _setup_platform() = @static if WEBVIEW_PLATFORM ≡ WEBVIEW_GTK
     )
 elseif WEBVIEW_PLATFORM ≡ WEBVIEW_EDGE
 elseif WEBVIEW_PLATFORM ≡ WEBVIEW_COCOA
-    # TODO: #5
+    # create `Yielder` class and `tick:timer` method
+    cls = ccall(
+        :objc_allocateClassPair,
+        Ptr{Cvoid}, (Ptr{Cvoid}, Cstring, Csize_t),
+        C_NULL, "WebviewsjlYielder", 0
+    )
+    ccall(:objc_registerClassPair, Cvoid, (Ptr{Cvoid},), cls)
+    ccall(
+        :class_replaceMethod, Ptr{Cvoid},
+        (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Cstring),
+        ccall(:object_getClass, Ptr{Cvoid}, (Ptr{Cvoid},), cls),
+        _a"tick"sel,
+        @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid})),
+        "v@:@"
+    )
+
+    PLATFORM.timer_ptr = ccall(
+        :objc_msgSend,
+        Ptr{Cvoid},
+        (Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Bool),
+        _a"NSTimer"cls,
+        _a"scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:"sel,
+        TIMEOUT_INTEVAL / 1000,
+        cls,
+        _a"tick:"sel,
+        C_NULL,
+        true
+    )
 else
 end
 

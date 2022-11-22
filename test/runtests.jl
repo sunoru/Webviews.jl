@@ -3,10 +3,9 @@ using HTTP
 using Webviews
 
 @testset "Webviews.jl" begin
-    # TODO: We have skipped some tests for #5
     is_cocoa = Webviews.WEBVIEW_PLATFORM ≡ Webviews.WEBVIEW_COCOA
 
-    server = is_cocoa ? nothing : HTTP.serve!(8080) do _
+    server = HTTP.serve!(8080) do _
         HTTP.Response("<h1>Hello</h1>")
     end
 
@@ -26,18 +25,18 @@ using Webviews
         step += 1
         if step == 1
             html!(webview, html)
-        elseif step == 3 || is_cocoa
-            eval!(webview, "end_test(document.body.innerHTML)")
         elseif step == 2
             navigate!(webview, "http://localhost:8080")
+        elseif step == 3
+            eval!(webview, "end_test(document.body.innerHTML)")
         end
         nothing
     end
     bind(webview, "end_test") do (x,)
         @test x == "<h1>Hello</h1>"
         # `terminate` does not work on macOS.
-        is_cocoa && return exit(0)
         close(server)
+        is_cocoa && return exit(0)
         terminate(webview)
     end
     init!(webview, "run_test().catch(console.error)")
