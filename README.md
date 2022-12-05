@@ -5,7 +5,7 @@
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://sunoru.github.io/Webviews.jl/stable)
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sunoru.github.io/Webviews.jl/dev)
 
-Pure-Julia version of [webview](https://github.com/webview/webview),
+Pure-Julia implementation of [webview](https://github.com/webview/webview),
 a tiny cross-platform webview library.
 
 ## Platform Support

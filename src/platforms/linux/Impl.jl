@@ -21,18 +21,7 @@ macro gcall(expr)
     :(@ccall $expr) |> esc
 end
 
-function check_dependency()
-    hdl = nothing
-    try
-        hdl = Libdl.dlopen(libwebkit2gtk)
-        return true
-    catch
-        @warn "Failed to load $libwebkit2gtk"
-        return false
-    finally
-        Libdl.dlclose(hdl)
-    end
-end
+check_dependency() = _check_dependency(libwebkit2gtk)
 
 function setup_platform()
     cb = @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid},))

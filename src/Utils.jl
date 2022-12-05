@@ -34,5 +34,3 @@ function API.unbind(ch::CallbackHandler, name::AbstractString)
     delete!(ch.callbacks, name)
     nothing
 end
-
-end

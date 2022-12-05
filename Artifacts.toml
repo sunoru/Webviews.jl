@@ -1,0 +1,8 @@
+[[webview2_loader]]
+git-tree-sha1 = "83388bde73af32c101a0abf07a5a415b3289f947"
+arch = "x86_64"
+os = "windows"
+
+    [[webview2_loader.download]]
+    url = "https://github.com/sunoru/Webviews.jl/releases/download/webview2_loader/webview2_loader.tar.gz"
+    sha256 = "89a35162667af099bc4b45c0b0229262a5d31f81c21a52bc7e9570439e0deec3"
