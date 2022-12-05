@@ -5,12 +5,21 @@
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://sunoru.github.io/Webviews.jl/stable)
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://sunoru.github.io/Webviews.jl/dev)
 
-Julia wrappers for [webview](https://github.com/webview/webview),
+Pure-Julia version of [webview](https://github.com/webview/webview),
 a tiny cross-platform webview library.
+
+## Platform Support
+
+Platform | Technologies
+-------- | ------------
+Linux    | [GTK 3](https://docs.gtk.org/gtk3/), [WebKitGTK](https://webkitgtk.org/)
+macOS    | Cocoa, [WebKit](https://webkit.org/)
+Windows  | [Windows API](https://docs.microsoft.com/en-us/windows/win32/apiindex/windows-api-list), [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
 
 ## Installation & Dependencies
 
-`Webviews.jl` requires Julia v1.8 or later on Windows and macOS, and Julia v1.9 or later on Linux.
+`Webviews.jl` requires **Julia v1.8 or later on Windows and macOS**,
+and **Julia v1.9 or later on Linux**.
 
 You can install this package with Julia's package manager:
 
@@ -29,7 +38,7 @@ sudo apt install libwebkit2gtk-4.0-dev
 sudo pacman -S webkit2gtk
 ```
 
-**Note**: `Webviews.jl` downloads its own prebuilt binaries and depends on libraries that are provided by the operating system, instead of using JLL packages.
+**Note**: `Webviews.jl` depends on libraries that are provided by the operating system, instead of using JLL packages.
 
 ## Usage
 

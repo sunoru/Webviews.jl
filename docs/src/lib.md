@@ -15,14 +15,18 @@ WindowSizeHint
 run(::Webview)
 terminate
 destroy
+dispatch
 window_handle
 title!
 resize!(::Webview)
+sizehint
 sizehint!(::Webview, ::WindowSizeHint)
 navigate!
 html!
 init!
 eval!
+bind_raw
 bind(::Function, ::Webview, ::AbstractString)
 unbind
+return_raw
 ```

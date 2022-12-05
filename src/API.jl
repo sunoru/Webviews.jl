@@ -11,8 +11,8 @@ export terminate,
     init!,
     eval!,
     bind_raw,
-    return_raw,
-    unbind
+    unbind,
+    return_raw
 
 using JSON3: JSON3
 

@@ -54,6 +54,7 @@ mutable struct Webview <: API.AbstractWebview
     )
         ch = Utils.CallbackHandler()
         platform = PlatformImpl.Webview(ch, debug, unsafe_window_handle)
+        window_handle(platform) ≡ C_NULL && error("Failed to create webview window")
         w = new(platform, ch)
         API.resize!(w, size; hint=size_hint)
         title!(w, title)

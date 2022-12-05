@@ -3,7 +3,7 @@ module WindowsImpl
 
 include("../common.jl")
 
-struct Webview <: AbstractPlatformImpl
+mutable struct Webview <: AbstractPlatformImpl
 end
 
 end
