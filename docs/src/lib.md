@@ -19,8 +19,6 @@ dispatch
 window_handle
 title!
 resize!(::Webview)
-sizehint
-sizehint!(::Webview, ::WindowSizeHint)
 navigate!
 html!
 init!

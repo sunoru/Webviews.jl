@@ -43,7 +43,6 @@ Base.@kwdef mutable struct Webview <: AbstractPlatformImpl
     config::ID = C_NULL
     manager::ID = C_NULL
     webview::ID = C_NULL
-    sizehint::WindowSizeHint = WEBVIEW_HINT_NONE
 end
 
 include("./utils.jl")
@@ -77,12 +76,15 @@ function Webview(
 end
 
 API.window_handle(w::Webview) = w.window
-API.terminate(::Union{Webview, Nothing}=nothing) =
+# TODO: support multiple windows.
+API.terminate(w::Webview) =
     let app = get_shared_application()
         # Stop the main event loop instead of terminating the process.
         @msg_send Cvoid app a"stop:"sel C_NULL
     end
-API.is_shown(w::Webview) = @msg_send Bool w.window a"isVisible"sel
+API.is_shown(w::Webview) = (
+    @msg_send Bool w.window a"isVisible"sel
+) && @msg_send Bool get_shared_application() a"isRunning"sel
 API.run(::Webview) =
     let app = get_shared_application()
         @msg_send Cvoid app a"run"sel
@@ -110,7 +112,7 @@ function API.size(w::Webview)
     (round(Int, size.width), round(Int, size.height))
 end
 
-function API.resize!(w::Webview, size::Tuple{Integer,Integer}; hint::WindowSizeHint)
+function API.resize!(w::Webview, size::Tuple{Integer,Integer}; hint::WindowSizeHint=WEBVIEW_HINT_NONE)
     width, height = size
     style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable
     if hint ≢ WEBVIEW_HINT_FIXED
@@ -132,11 +134,8 @@ function API.resize!(w::Webview, size::Tuple{Integer,Integer}; hint::WindowSizeH
         )
     end
     @msg_send Cvoid w.window a"center"sel
-    w.sizehint = hint
     w
 end
-
-API.sizehint(w::Webview) = w.sizehint
 
 function API.navigate!(w::Webview, url::AbstractString)
     nsurl = @msg_send ID a"NSURL"cls a"URLWithString:"sel @a_str(url, "str")

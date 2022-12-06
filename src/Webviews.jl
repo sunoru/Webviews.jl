@@ -32,7 +32,7 @@ using .Consts: WebviewStatus, WEBVIEW_PENDING, WEBVIEW_RUNNING, WEBVIEW_DESTORYE
 @reexport using .API
 
 """
-    Webview(size=(1024, 768); title="", debug=false, size_hint=WEBVIEW_HINT_NONE, unsafe_window_handle=C_NULL)
+    Webview(size=(1024, 768); title="", debug=false, size_fixed=false, unsafe_window_handle=C_NULL)
     Webview(width, height; kwargs...)
 
 Create a new webview instance with `size` and `title`.
@@ -51,14 +51,14 @@ mutable struct Webview <: API.AbstractWebview
         size::Tuple{Integer,Integer}=(1024, 768);
         title::AbstractString="",
         debug::Bool=false,
-        size_hint::WindowSizeHint=WEBVIEW_HINT_NONE,
+        size_fixed::Bool=false,
         unsafe_window_handle::Ptr{Cvoid}=C_NULL
     )
         ch = Utils.CallbackHandler()
         platform = PlatformImpl.Webview(ch, debug, unsafe_window_handle)
         window_handle(platform) ≡ C_NULL && error("Failed to create webview window")
         w = new(platform, ch, WEBVIEW_PENDING)
-        API.resize!(w, size; hint=size_hint)
+        API.resize!(w, size; hint=size_fixed ? WEBVIEW_HINT_FIXED : WEBVIEW_HINT_NONE)
         title!(w, title)
         finalizer(destroy, w)
     end

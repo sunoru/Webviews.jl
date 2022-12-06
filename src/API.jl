@@ -5,7 +5,6 @@ export terminate,
     dispatch,
     window_handle,
     title!,
-    sizehint,
     navigate!,
     html!,
     init!,
@@ -123,26 +122,12 @@ Sets the native window size.
 """
 function Base.resize!(
     w::AbstractWebview,
-    size::Tuple{Integer, Integer}=size(w);
-    hint::Union{WindowSizeHint, Nothing}=sizehint(w)
+    size::Tuple{Integer, Integer};
+    hint::Union{WindowSizeHint, Nothing}=WEBVIEW_HINT_NONE
 )
     resize!(w.platform, size, hint=hint)
     w
 end
-
-"""
-    sizehint(w::Webview)
-
-Gets the native window size hint.
-"""
-@forward sizehint(w)
-
-"""
-    sizehint!(w::Webview, hint::WindowSizeHint)
-
-Sets the native window size hint.
-"""
-Base.sizehint!(w, hint::WindowSizeHint) = resize!(w; hint)
 
 """
     navigate!(w::Webview, url::AbstractString)
@@ -250,7 +235,6 @@ end
 const run = Base.run
 const size = Base.size
 const resize! = Base.resize!
-const sizehint! = Base.sizehint!
 const bind = Base.bind
 
 end

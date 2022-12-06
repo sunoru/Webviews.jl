@@ -18,19 +18,9 @@ function create_app_delegate(w::Webview)
         cls::ID,
         a"applicationShouldTerminateAfterLastWindowClosed:"sel::SEL,
         @cfunction(
-            (_1, _2, _3) -> true,
-            Bool, (ID, SEL, ID)
-        )::Ptr{Cvoid},
-        "c@:@"::Cstring
-    )::Bool
-    @ccall class_addMethod(
-        cls::ID,
-        a"applicationShouldTerminate:"sel::SEL,
-        @cfunction(
-            (_1, _2, _3) -> begin
-                # Use `terminate` to stop the main event loop instead of
-                # immediately terminating the application (process).
-                terminate()
+            (self, _2, _3) -> begin
+                w = get_associated_webview(self)
+                terminate(w)
                 false
             end,
             Bool, (ID, SEL, ID)

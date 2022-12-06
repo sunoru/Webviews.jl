@@ -28,7 +28,6 @@ mutable struct Webview <: AbstractPlatformImpl
     const gtk_window_handle::Ptr{Cvoid}
     const webview_handle::Ptr{Cvoid}
     const dispatched::Set{Base.RefValue{Tuple{Webview,Function}}}
-    sizehint::WindowSizeHint
 
     function Webview(
         callback_handler::CallbackHandler,
@@ -44,7 +43,7 @@ mutable struct Webview <: AbstractPlatformImpl
             unsafe_window_handle
         end
         webview = @gcall webkit_web_view_new()::Ptr{Cvoid}
-        w = new(window, webview, Set(), WEBVIEW_HINT_NONE)
+        w = new(window, webview, Set())
 
         @g_signal_connect(
             window, "destroy", w,
@@ -156,7 +155,7 @@ Base.@kwdef struct GdkGeometry
     win_gravity::Cint = 1  # GDK_GRAVITY_NORTH_WEST
 end
 
-function API.resize!(w::Webview, size::Tuple{Integer,Integer}; hint::WindowSizeHint)
+function API.resize!(w::Webview, size::Tuple{Integer,Integer}; hint::WindowSizeHint=WEBVIEW_HINT_NONE)
     window = w.gtk_window_handle
     width, height = size
     @gcall gtk_window_set_resizable(window::Ptr{Cvoid}, (hint ≢ WEBVIEW_HINT_FIXED)::Bool)
@@ -183,10 +182,8 @@ function API.resize!(w::Webview, size::Tuple{Integer,Integer}; hint::WindowSizeH
             h::Cint
         )
     end
-    w.sizehint = hint
     w
 end
-API.sizehint(w::Webview) = w.sizehint
 
 API.navigate!(w::Webview, url::AbstractString) = (@gcall webkit_web_view_load_uri(
     w.webview_handle::Ptr{Cvoid},

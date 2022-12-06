@@ -7,6 +7,9 @@ html = """
     <button onclick="press('I was pressed!', 123, new Date()).then(log);">
       Press me!
     </button>
+    <button onclick="resize()">
+      Resize
+    </button>
     <button onclick="terminate()">
       Close
     </button>
@@ -22,6 +25,11 @@ counter = 0
 bind(webview, "press") do (a, b, c)
     @show a, b, c
     Dict("times" => (global counter += 1))
+end
+bind(webview, "resize") do _
+    @show sz = size(webview)
+    width, height = sz
+    resize!(webview, (800 - width, 800 - height))
 end
 bind(println, webview, "log")
 bind(webview, "terminate") do _

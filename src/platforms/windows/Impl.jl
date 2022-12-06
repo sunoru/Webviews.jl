@@ -42,7 +42,6 @@ mutable struct Webview <: AbstractPlatformImpl
     const timer_id::Cuint
     const main_thread::DWORD
     const dispatched::Set{Base.RefValue{Tuple{Webview,Function}}}
-    sizehint::WindowSizeHint
 end
 
 function Webview(
@@ -60,7 +59,7 @@ function Webview(
         @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid}, Cuint, UInt, UInt32))::Ptr{Cvoid}::Ptr{Cvoid}
     )::UInt
     main_thread = @ccall GetCurrentThreadId()::DWORD
-    Webview(ptr, timer_id, main_thread, Set(), WEBVIEW_HINT_NONE)
+    Webview(ptr, timer_id, main_thread, Set())
 end
 Base.cconvert(::Type{Ptr{Cvoid}}, w::Webview) = w.ptr
 
@@ -116,7 +115,7 @@ function API.size(w::Webview)
     (rect[].right - rect[].left, rect[].bottom - rect[].top)
 end
 
-function API.resize!(w::Webview, size::Tuple{Integer,Integer}; hint::WindowSizeHint)
+function API.resize!(w::Webview, size::Tuple{Integer,Integer}; hint::WindowSizeHint=WEBVIEW_HINT_NONE)
     width, height = size
     @ccall libwebview.webview_set_size(
         w::Ptr{Cvoid},
@@ -124,10 +123,8 @@ function API.resize!(w::Webview, size::Tuple{Integer,Integer}; hint::WindowSizeH
         height::Cint,
         hint::Cint
     )::Cvoid
-    w.sizehint = hint
     w
 end
-API.sizehint(w::Webview) = w.sizehint
 
 API.navigate!(w::Webview, url::AbstractString) = (
     (@ccall libwebview.webview_navigate(w::Ptr{Cvoid}, url::Cstring)::Cvoid); w)
