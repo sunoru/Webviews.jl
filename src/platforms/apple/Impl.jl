@@ -9,8 +9,10 @@ Base.@kwdef mutable struct PlatformSettings
     timer_ptr::Ptr{Cvoid} = 0
 end
 const PLATFORM = PlatformSettings()
+const libWebKit = "/System/Library/Frameworks/WebKit.framework/Versions/A/WebKit"
+const ASSOCIATED_KEY = "webview"
 
-check_dependency() = true
+check_dependency() = _check_dependency(libWebKit)
 function setup_platform()
     # Register the yielder in the shared `NSApplication`.
     app = get_shared_application()
@@ -61,7 +63,7 @@ function Webview(
     delegate = create_app_delegate(w)
     @ccall objc_setAssociatedObject(
         delegate::ID,
-        "webview"::Cstring,
+        ASSOCIATED_KEY::Cstring,
         this_ptr::ID,
         0::UInt  # OBJC_ASSOCIATION_ASSIGN
     )::ID
@@ -77,7 +79,7 @@ end
 API.window_handle(w::Webview) = w.window
 API.terminate(::Webview) =
     let app = get_shared_application()
-        @msg_send Cvoid app a"terminate"sel C_NULL
+        @msg_send Cvoid app a"terminate:"sel C_NULL
     end
 API.is_shown(w::Webview) = @msg_send Bool w.window a"isVisible"sel
 API.run(::Webview) =
@@ -91,7 +93,7 @@ function API.dispatch(f::Function, w::Webview)
     @ccall dispatch_async_f(
         w.main_queue::ID,
         ptr::Ptr{Cvoid},
-        @cfunction(_dispatch, Cvoid, (Ptr{Cvoid},))::Ptr{Cvoid}
+        @cfunction((arg) -> (_dispatch(arg); nothing), Cvoid, (Ptr{Cvoid},))::Ptr{Cvoid}
     )::Cvoid
 end
 
@@ -102,10 +104,9 @@ API.title!(w::Webview, title::AbstractString) = @msg_send(
 )
 
 function API.size(w::Webview)
-    frame = @msg_send ID w.window a"frame"sel
-    width = @msg_send CGFloat frame a"width"sel
-    height = @msg_send CGFloat frame a"height"sel
-    (round(Int, width), round(Int, height))
+    frame = @msg_send_stret CGRect w.window a"frame"sel
+    size = frame.size
+    (round(Int, size.width), round(Int, size.height))
 end
 
 function API.resize!(w::Webview, size::Tuple{Integer,Integer}; hint::WindowSizeHint)
@@ -114,17 +115,17 @@ function API.resize!(w::Webview, size::Tuple{Integer,Integer}; hint::WindowSizeH
     if hint ≢ WEBVIEW_HINT_FIXED
         style |= NSWindowStyleMaskResizable
     end
-    @msg_send Cvoid w.window a"setStyleMask:"sel style
+    @msg_send Cvoid w.window a"setStyleMask:"sel style::UInt
     if hint ≡ WEBVIEW_HINT_MIN
-        @msg_send Cvoid w.window a"setContentMinSize:"sel @ccall(CGSizeMake(width::CGFloat, height::CGFloat)::ID)
+        @msg_send Cvoid w.window a"setContentMinSize:"sel CGSize(width, height)::CGSize
     elseif hint ≡ WEBVIEW_HINT_MAX
-        @msg_send Cvoid w.window a"setContentMaxSize:"sel @ccall(CGSizeMake(width::CGFloat, height::CGFloat)::ID)
+        @msg_send Cvoid w.window a"setContentMaxSize:"sel CGSize(width, height)::CGSize
     else
         @msg_send(
             Cvoid,
             w.window,
             a"setFrame:display:animate:"sel,
-            (@ccall CGRectMake(0::CGFloat, 0::CGFloat, width::CGFloat, height::CGFloat)::ID),
+            CGRect(0, 0, width, height)::CGRect,
             true::Bool,
             false::Bool
         )
@@ -133,6 +134,8 @@ function API.resize!(w::Webview, size::Tuple{Integer,Integer}; hint::WindowSizeH
     w.sizehint = hint
     w
 end
+
+API.sizehint(w::Webview) = w.sizehint
 
 function API.navigate!(w::Webview, url::AbstractString)
     nsurl = @msg_send ID a"NSURL"cls a"URLWithString:"sel @a_str(url, "str")
@@ -152,7 +155,7 @@ function API.init!(w::Webview, js::AbstractString)
         0::Int,  # WKUserScriptInjectionTimeAtDocumentStart
         true::Bool
     )
-    @msg_send Cvoid w.webview a"addUserScript:"sel user_script
+    @msg_send Cvoid w.manager a"addUserScript:"sel user_script
     w
 end
 function API.eval!(w::Webview, js::AbstractString)

@@ -24,7 +24,6 @@ function _check_dependency(lib)
 end
 
 function _dispatch(p::Ptr{Cvoid})
-    @show p
     cd = nothing
     w = nothing
     try

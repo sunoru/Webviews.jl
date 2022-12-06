@@ -3,8 +3,6 @@ using HTTP
 using Webviews
 
 @testset "Webviews.jl" begin
-    is_cocoa = Webviews.WEBVIEW_PLATFORM ≡ Webviews.WEBVIEW_COCOA
-
     server = HTTP.serve!(8080) do _
         HTTP.Response("<html><body><h1>Hello</h1></body></html>")
     end
@@ -12,7 +10,7 @@ using Webviews
     webview = Webview(;
         title="Test",
         debug=true,
-        size_hint=WEBVIEW_HINT_MAX
+        size_hint=WEBVIEW_HINT_NONE
     )
     resize!(webview, (320, 240))
     @test size(webview) == (320, 240) skip=Sys.islinux()
@@ -22,6 +20,7 @@ using Webviews
     html = """<html><body><h1>Hello from Julia v$VERSION</h1></body></html>"""
     step = 0
     bind(webview, "run_test") do _
+        sleep(0.2)
         step += 1
         if step == 1
             html!(webview, html)
@@ -39,7 +38,6 @@ using Webviews
         @test x == "<h1>Hello</h1>"
         # `terminate` does not work on macOS.
         close(server)
-        is_cocoa && return exit(0)
         terminate(webview)
     end
     init!(webview, "run_test().catch(console.error)")

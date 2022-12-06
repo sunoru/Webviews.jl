@@ -1,22 +1,20 @@
-get_shared_application() = @msg_send Ptr{Cvoid} a"NSApplication"cls a"sharedApplication"sel
+get_shared_application() = @msg_send ID a"NSApplication"cls a"sharedApplication"sel
 
 function get_associated_webview(self::ID)
     w = @ccall objc_getAssociatedObject(
         self::ID,
-        "webview"::Cstring
+        ASSOCIATED_KEY::Cstring
     )::ID
     unsafe_pointer_to_objref(Ptr{Webview}(w))
 end
 
 function create_app_delegate(w::Webview)
     cls = @ccall objc_allocateClassPair(a"NSResponder"cls::ID, "WebviewAppDelegate"::Cstring, 0::Int)::ID
-    @show cls
-    ret = @ccall class_addProtocol(
+    @ccall class_addProtocol(
         cls::ID,
         (@ccall objc_getProtocol("NSTouchBarProvider"::Cstring)::ID)::ID
     )::Bool
-    @show ret
-    ret = @ccall class_addMethod(
+    @ccall class_addMethod(
         cls::ID,
         a"applicationShouldTerminateAfterLastWindowClosed:"sel::SEL,
         @cfunction(
@@ -25,9 +23,8 @@ function create_app_delegate(w::Webview)
         )::Ptr{Cvoid},
         "c@:@"::Cstring
     )::Bool
-    @show ret
     if w.parent_window ≡ C_NULL
-        ret = @ccall class_addMethod(
+        @ccall class_addMethod(
             cls::ID,
             a"applicationDidFinishLaunching:"sel::SEL,
             @cfunction(
@@ -40,10 +37,8 @@ function create_app_delegate(w::Webview)
             )::Ptr{Cvoid},
             "v@:@"::Cstring
         )::Bool
-        @show ret
     end
-    ret = @ccall objc_registerClassPair(cls::ID)::Ptr{Cvoid}
-    @show ret
+    @ccall objc_registerClassPair(cls::ID)::Ptr{Cvoid}
     @msg_send ID cls a"new"sel
 end
 
@@ -93,14 +88,14 @@ function create_script_message_handler(w::Webview)
         cls::ID,
         (@ccall objc_getProtocol("WKScriptMessageHandler"::Cstring)::ID)::ID
     )::Bool
-    @ccall claass_addMethod(
+    @ccall class_addMethod(
         cls::ID,
         a"userContentController:didReceiveScriptMessage:"sel::SEL,
         @cfunction(
             (self, _2, _3, msg) -> begin
                 w = get_associated_webview(self)
                 s = @msg_send(
-                    Ptr{Cvoid},
+                    Ptr{Cchar},
                     (@msg_send ID msg a"body"sel),
                     a"UTF8String"sel
                 )
@@ -114,7 +109,7 @@ function create_script_message_handler(w::Webview)
     instance = @msg_send ID cls a"new"sel
     @ccall objc_setAssociatedObject(
         instance::ID,
-        "webview"::Cstring,
+        ASSOCIATED_KEY::Cstring,
         pointer_from_objref(w)::ID,
         0::UInt  # OBJC_ASSOCIATION_ASSIGN
     )::ID
@@ -131,8 +126,8 @@ function is_app_bundled()
 end
 
 function on_application_did_finish_launching(w::Webview, _self::ID, app::ID)
-    if m.parent_window ≡ C_NULL
-        @msg_send Cvoid app a"stop"sel C_NULL
+    if w.parent_window ≡ C_NULL
+        @msg_send Cvoid app a"stop:"sel C_NULL
     end
     if !is_app_bundled()
         @msg_send Cvoid app a"setActivationPolicy:"sel 0::Int  # NSApplicationActivationPolicyRegular
@@ -140,18 +135,18 @@ function on_application_did_finish_launching(w::Webview, _self::ID, app::ID)
     end
 
     # Main window
-    if w.parent_window ≡ C_NULL
-        w.window = @msg_send(
+    window = w.window = if w.parent_window ≡ C_NULL
+        @msg_send(
             ID,
             (@msg_send ID a"NSWindow"cls a"alloc"sel),
             a"initWithContentRect:styleMask:backing:defer:"sel,
-            (@ccall CGRectMake(0::CGFloat, 0::CGFloat, 0::CGFloat, 0::CGFloat)::ID),
+            CGRect(0, 0, 0, 0)::CGRect,
             NSWindowStyleMaskTitled::UInt,
             2::UInt,
             false::Bool
         )
     else
-        w.window = w.parent_window
+        w.parent_window
     end
 
     # Webview
@@ -194,7 +189,7 @@ function on_application_did_finish_launching(w::Webview, _self::ID, app::ID)
         Cvoid,
         webview,
         a"initWithFrame:configuration:"sel,
-        (@ccall CGRectMake(0::CGFloat, 0::CGFloat, 0::CGFloat, 0::CGFloat)::ID),
+        CGRect(0, 0, 0, 0)::CGRect,
         config
     )
     @msg_send Cvoid webview a"setUIDelegate:"sel ui_delegate
