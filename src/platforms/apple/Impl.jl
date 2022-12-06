@@ -6,7 +6,7 @@ include("../common.jl")
 include("./objc.jl")
 
 Base.@kwdef mutable struct PlatformSettings
-    timer_ptr::Cuint = 0
+    timer_ptr::Ptr{Cvoid} = 0
 end
 const PLATFORM = PlatformSettings()
 
