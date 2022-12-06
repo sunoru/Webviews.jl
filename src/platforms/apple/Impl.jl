@@ -93,8 +93,7 @@ function API.dispatch(f::Function, w::Webview)
         w.main_queue::ID,
         ptr::Ptr{Cvoid},
         @cfunction(_dispatch, Cvoid, (Ptr{Cvoid},))::Ptr{Cvoid}
-    )
-    nothing
+    )::Cvoid
 end
 
 API.title!(w::Webview, title::AbstractString) = @msg_send(

@@ -20,7 +20,7 @@ function create_app_delegate(w::Webview)
         @cfunction(
             (_1, _2, _3) -> true,
             Bool, (ID, SEL, ID)
-        ),
+        )::Ptr{Cvoid},
         "c@:@"::Cstring
     )::Bool
     if w.parent_window ≡ C_NULL
@@ -104,12 +104,12 @@ function create_script_message_handler(w::Webview)
             Cvoid, (ID, SEL, ID, ID)
         )::Ptr{Cvoid},
         "v@:@@"::Cstring
-    )
+    )::Bool
     @ccall objc_registerClassPair(cls::ID)::Cvoid
     instance = @msg_send ID cls a"new"sel
     @ccall objc_setAssociatedObject(
         instance::ID,
-        a"webview"::Cstring,
+        "webview"::Cstring,
         pointer_from_objref(w)::ID,
         0::UInt  # OBJC_ASSOCIATION_ASSIGN
     )::ID
