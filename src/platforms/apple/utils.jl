@@ -10,11 +10,13 @@ end
 
 function create_app_delegate(w::Webview)
     cls = @ccall objc_allocateClassPair(a"NSResponder"cls::ID, "WebviewAppDelegate"::Cstring, 0::Int)::ID
-    @ccall class_addProtocol(
+    @show cls
+    ret = @ccall class_addProtocol(
         cls::ID,
         (@ccall objc_getProtocol("NSTouchBarProvider"::Cstring)::ID)::ID
     )::Bool
-    @ccall class_addMethod(
+    @show ret
+    ret = @ccall class_addMethod(
         cls::ID,
         a"applicationShouldTerminateAfterLastWindowClosed:"sel::SEL,
         @cfunction(
@@ -23,8 +25,9 @@ function create_app_delegate(w::Webview)
         )::Ptr{Cvoid},
         "c@:@"::Cstring
     )::Bool
+    @show ret
     if w.parent_window ≡ C_NULL
-        @ccall class_addMethod(
+        ret = @ccall class_addMethod(
             cls::ID,
             a"applicationDidFinishLaunching:"sel::SEL,
             @cfunction(
@@ -37,8 +40,10 @@ function create_app_delegate(w::Webview)
             )::Ptr{Cvoid},
             "v@:@"::Cstring
         )::Bool
+        @show ret
     end
-    @ccall objc_registerClassPair(cls::ID)::Cvoid
+    ret = @ccall objc_registerClassPair(cls::ID)::Ptr{Cvoid}
+    @show ret
     @msg_send ID cls a"new"sel
 end
 
@@ -125,7 +130,7 @@ function is_app_bundled()
     bundled = @msg_send Bool bundle_path a"hasSuffix:"sel a".app"str
 end
 
-function on_application_did_finish_launching(w::Webview, self::ID, app::ID)
+function on_application_did_finish_launching(w::Webview, _self::ID, app::ID)
     if m.parent_window ≡ C_NULL
         @msg_send Cvoid app a"stop"sel C_NULL
     end
