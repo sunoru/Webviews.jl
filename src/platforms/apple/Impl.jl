@@ -34,7 +34,7 @@ end
 Base.@kwdef mutable struct Webview <: AbstractPlatformImpl
     const parent_window::Ptr{Cvoid}
     const debug::Bool
-    const callback_handler::CallbackHandler,
+    const callback_handler::CallbackHandler
     const main_queue::ID
     const dispatched::Set{Base.RefValue{Tuple{Webview,Function}}}
     window::ID = C_NULL

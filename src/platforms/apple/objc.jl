@@ -33,8 +33,8 @@ end
 const CGFloat = @static Sys.WORD_SIZE == 64 ? Float64 : Float32
 
 @enum NSWindowStyleMask::UInt begin
-    NSWindowStyleMaskTitled = 1,
-    NSWindowStyleMaskClosable = 2,
-    NSWindowStyleMaskMiniaturizable = 4,
+    NSWindowStyleMaskTitled = 1
+    NSWindowStyleMaskClosable = 2
+    NSWindowStyleMaskMiniaturizable = 4
     NSWindowStyleMaskResizable = 8
 end
