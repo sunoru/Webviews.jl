@@ -35,8 +35,8 @@ Base.@kwdef mutable struct Webview <: AbstractPlatformImpl
     const parent_window::Ptr{Cvoid}
     const debug::Bool
     const callback_handler::CallbackHandler
-    const main_queue::ID
-    const dispatched::Set{Base.RefValue{Tuple{Webview,Function}}}
+    const main_queue::ID = cglobal(:_dispatch_main_q)
+    const dispatched::Set{Base.RefValue{Tuple{Webview,Function}}} = Set()
     window::ID = C_NULL
     config::ID = C_NULL
     manager::ID = C_NULL
@@ -51,12 +51,10 @@ function Webview(
     debug::Bool,
     unsafe_window_handle::Ptr{Cvoid}
 )
-    main_queue = cglobal(:_dispatch_main_q)
     w = Webview(;
         parent_window=unsafe_window_handle,
         debug,
-        callback_handler,
-        main_queue
+        callback_handler
     )
     this_ptr = pointer_from_objref(w)
     app = get_shared_application()
