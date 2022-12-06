@@ -7,7 +7,60 @@ mutable struct Webview <: AbstractPlatformImpl
     const webview_handle::Ptr{Cvoid}
     dispatched::Set{Base.RefValue{Tuple{Webview,Function}}}
     sizehint::WindowSizeHint
-    status::WebviewStatus
+
+    function Webview(
+        callback_handler::CallbackHandler,
+        debug::Bool,
+        unsafe_window_handle::Ptr{Cvoid}
+    )
+        ret = @gcall gtk_init_check(0::Cint, C_NULL::Ptr{Cvoid})::Bool
+        ret || error("Failed to initialize GTK")
+        window = if unsafe_window_handle ≡ C_NULL
+            # GTK_WINDOW_TOPLEVEL
+            @gcall gtk_window_new(0::Cint)::Ptr{Cvoid}
+        else
+            unsafe_window_handle
+        end
+        webview = @gcall webkit_web_view_new()::Ptr{Cvoid}
+        w = new(window, webview, Set(), WEBVIEW_HINT_NONE)
+
+        @g_signal_connect(
+            window, "destroy", w,
+            @cfunction(
+                (_, w) -> terminate(unsafe_pointer_to_objref(Ptr{Webview}(w))),
+                Cvoid, (Ptr{Cvoid}, Ptr{Cvoid})
+            )
+        )
+        manager = @gcall webkit_web_view_get_user_content_manager(webview::Ptr{Cvoid})::Ptr{Cvoid}
+        @g_signal_connect(
+            manager, "script-message-received::external", callback_handler,
+            @cfunction(
+                (_, r, data) -> begin
+                    mh = unsafe_pointer_to_objref(Ptr{CallbackHandler}(data))
+                    s = get_string_from_js_result(r)
+                    on_message(mh, s)
+                    @gcall g_free(s::Ptr{Cvoid})
+                end,
+                Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid})
+            )
+        )
+        @gcall webkit_user_content_manager_register_script_message_handler(
+            manager::Ptr{Cvoid}, "external"::Cstring
+        )
+        init!(w, "window.external={invoke:function(s){window.webkit.messageHandlers.external.postMessage(s);}}")
+        @gcall gtk_container_add(window::Ptr{Cvoid}, webview::Ptr{Cvoid})
+        @gcall gtk_widget_grab_focus(webview::Ptr{Cvoid})
+        settings = @gcall webkit_web_view_get_settings(webview::Ptr{Cvoid})::Ptr{Cvoid}
+        @gcall webkit_settings_set_javascript_can_access_clipboard(settings::Ptr{Cvoid}, true::Bool)
+        if debug
+            @gcall webkit_settings_set_enable_write_console_messages_to_stdout(
+                settings::Ptr{Cvoid}, true::Bool
+            )
+            @gcall webkit_settings_set_enable_developer_extras(settings::Ptr{Cvoid}, true::Bool)
+        end
+        @gcall gtk_widget_show_all(window::Ptr{Cvoid})
+        w
+    end
 end
 
 const libwebkit2gtk = "libwebkit2gtk-4.0"
@@ -49,90 +102,15 @@ macro g_signal_connect(instance, signal, data, cf)
     end |> esc
 end
 
-# macro g_new(type, size)
-#     :(@gcall g_malloc_n($size::Csize_t, $(sizeof(type))::Csize_t)::Ptr{$type}) |> esc
-# end
-
-# function get_string_from_js_result(r::Ptr{Cvoid})
-#     ctx = @gcall webkit_javascript_result_get_global_context(r::Ptr{Cvoid})::Ptr{Cvoid}
-#     value = @gcall webkit_javascript_result_get_value(r::Ptr{Cvoid})::Ptr{Cvoid}
-#     js = @gcall JSValueToStringCopy(ctx::Ptr{Cvoid}, value::Ptr{Cvoid}, C_NULL::Ptr{Cvoid})::Ptr{Cvoid}
-#     n = @gcall JSStringGetMaximumUTF8CStringSize(js::Ptr{Cvoid})::Csize_t
-#     s = @g_new(Cchar, n)
-#     @gcall JSStringGetUTF8CString(js::Ptr{Cvoid}, s::Ptr{Cchar}, n::Csize_t)
-#     @gcall JSStringRelease(js::Ptr{Cvoid})
-#     s
-# end
 function get_string_from_js_result(r::Ptr{Cvoid})
     value = @gcall webkit_javascript_result_get_js_value(r::Ptr{Cvoid})::Ptr{Cvoid}
     s = @gcall jsc_value_to_string(value::Ptr{Cvoid})::Ptr{Cchar}
     s
 end
 
-function Webview(
-    callback_handler::CallbackHandler,
-    debug::Bool,
-    unsafe_window_handle::Ptr{Cvoid}
-)
-    ret = @gcall gtk_init_check(0::Cint, C_NULL::Ptr{Cvoid})::Bool
-    ret || error("Failed to initialize GTK")
-    window = if unsafe_window_handle ≡ C_NULL
-        # GTK_WINDOW_TOPLEVEL
-        @gcall gtk_window_new(0::Cint)::Ptr{Cvoid}
-    else
-        unsafe_window_handle
-    end
-    webview = @gcall webkit_web_view_new()::Ptr{Cvoid}
-    w = Webview(window, webview, Set(), WEBVIEW_HINT_NONE, WEBVIEW_PENDING)
-
-    @g_signal_connect(
-        window, "destroy", w,
-        @cfunction(
-            (_, w) -> terminate(unsafe_pointer_to_objref(Ptr{Webview}(w))),
-            Cvoid, (Ptr{Cvoid}, Ptr{Cvoid})
-        )
-    )
-    manager = @gcall webkit_web_view_get_user_content_manager(webview::Ptr{Cvoid})::Ptr{Cvoid}
-    @g_signal_connect(
-        manager, "script-message-received::external", callback_handler,
-        @cfunction(
-            (_, r, data) -> begin
-                mh = unsafe_pointer_to_objref(Ptr{CallbackHandler}(data))
-                s = get_string_from_js_result(r)
-                on_message(mh, s)
-                @gcall g_free(s::Ptr{Cvoid})
-            end,
-            Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid})
-        )
-    )
-    @gcall webkit_user_content_manager_register_script_message_handler(
-        manager::Ptr{Cvoid}, "external"::Cstring
-    )
-    init!(w, "window.external={invoke:function(s){window.webkit.messageHandlers.external.postMessage(s);}}")
-    @gcall gtk_container_add(window::Ptr{Cvoid}, webview::Ptr{Cvoid})
-    @gcall gtk_widget_grab_focus(webview::Ptr{Cvoid})
-    settings = @gcall webkit_web_view_get_settings(webview::Ptr{Cvoid})::Ptr{Cvoid}
-    @gcall webkit_settings_set_javascript_can_access_clipboard(settings::Ptr{Cvoid}, true::Bool)
-    if debug
-        @gcall webkit_settings_set_enable_write_console_messages_to_stdout(
-            settings::Ptr{Cvoid}, true::Bool
-        )
-        @gcall webkit_settings_set_enable_developer_extras(settings::Ptr{Cvoid}, true::Bool)
-    end
-    @gcall gtk_widget_show_all(window::Ptr{Cvoid})
-    w
-end
-
+API.window_handle(w::Webview) = w.gtk_window_handle
 API.terminate(::Webview) = @gcall gtk_main_quit()
-function API.is_destroyed(w::Webview)
-    w.status ≡ WEBVIEW_DESTORYED && return true
-    w.status ≡ WEBVIEW_PENDING && return false
-    destroyed = 0 == @gcall gtk_main_level()::Cuint;
-    if destroyed
-        w.status = WEBVIEW_DESTORYED
-    end
-    destroyed
-end
+API.is_shown(::Webview) = 0 ≠ @gcall gtk_main_level()::Cuint
 function API.run(w::Webview)
     w.status = WEBVIEW_RUNNING
     @gcall gtk_main()
@@ -162,11 +140,10 @@ function API.dispatch(f::Function, w::Webview)
     )
 end
 
-API.window_handle(w::Webview) = w.gtk_window_handle
 API.title!(w::Webview, title::AbstractString) = @gcall gtk_window_set_title(
     w.gtk_window_handle::Ptr{Cvoid},
     title::Cstring
-)::Ptr{Cchar}
+)
 
 function API.size(w::Webview)
     width = Ref{Cint}()

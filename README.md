@@ -38,7 +38,7 @@ sudo apt install libwebkit2gtk-4.0-dev
 sudo pacman -S webkit2gtk
 ```
 
-**Note**: `Webviews.jl` depends on libraries that are provided by the operating system, instead of using JLL packages.
+**Note**: `Webviews.jl` downloads its own prebuilt binaries (only on Windows) and depends on libraries that are provided by the operating system, instead of using JLL packages.
 
 ## Usage
 

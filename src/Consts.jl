@@ -40,7 +40,7 @@ Values:
     WEBVIEW_HINT_FIXED = 3
 end
 
-const TIMEOUT_INTEVAL = 1000 ÷ 30
+const TIMEOUT_INTERVAL = 1000 ÷ 30
 
 @enum WebviewStatus begin
     WEBVIEW_PENDING

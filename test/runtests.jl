@@ -15,7 +15,7 @@ using Webviews
         size_hint=WEBVIEW_HINT_MAX
     )
     resize!(webview, (320, 240))
-    @test_skip size(webview) == (320, 240)
+    @test size(webview) == (320, 240) skip=Sys.islinux()
     sizehint!(webview, WEBVIEW_HINT_MAX)
     @test sizehint(webview) == WEBVIEW_HINT_MAX
     @test window_handle(webview) != C_NULL

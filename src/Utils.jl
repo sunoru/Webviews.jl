@@ -5,7 +5,7 @@ using JSON3: JSON3
 using ..API
 
 mutable struct CallbackHandler
-    const callbacks::Dict{String,Function}
+    const callbacks::Dict{String,Base.RefValue{Tuple{Function,Any}}}
     CallbackHandler() = new(Dict())
 end
 
@@ -16,8 +16,8 @@ function on_message(ch::CallbackHandler, s::Ptr{Cchar})
         haskey(ch.callbacks, name) || return
         seq = msg.id
         args = msg.params
-        f = ch.callbacks[name]
-        f(seq, copy(args))
+        f, arg = ch.callbacks[name][]
+        f(seq, copy(args), arg)
     catch e
         @debug "Error occured while handling message: $e"
     end
@@ -26,11 +26,13 @@ end
 
 function API.bind_raw(f::Function, ch::CallbackHandler, name::AbstractString, arg=nothing)
     haskey(ch.callbacks, name) && return
-    ch.callbacks[name] = (seq, req) -> f(seq, req, arg)
+    ch.callbacks[name] = Ref{Tuple{Function,Any}}((f, arg))
     nothing
 end
 
 function API.unbind(ch::CallbackHandler, name::AbstractString)
     delete!(ch.callbacks, name)
     nothing
+end
+
 end

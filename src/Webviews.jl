@@ -28,6 +28,7 @@ else
     using .LinuxImpl: LinuxImpl as PlatformImpl
 end
 @reexport using .Consts
+using .Consts: WebviewStatus, WEBVIEW_PENDING, WEBVIEW_RUNNING, WEBVIEW_DESTORYED
 @reexport using .API
 
 """
@@ -45,6 +46,7 @@ a `GtkWindow`, `NSWindow` or `HWND` pointer can be passed here.
 mutable struct Webview <: API.AbstractWebview
     const platform::PlatformImpl.Webview
     const callback_handler::Utils.CallbackHandler
+    status::Consts.WebviewStatus
     function Webview(
         size::Tuple{Integer,Integer}=(1024, 768);
         title::AbstractString="",
@@ -55,7 +57,7 @@ mutable struct Webview <: API.AbstractWebview
         ch = Utils.CallbackHandler()
         platform = PlatformImpl.Webview(ch, debug, unsafe_window_handle)
         window_handle(platform) ≡ C_NULL && error("Failed to create webview window")
-        w = new(platform, ch)
+        w = new(platform, ch, WEBVIEW_PENDING)
         API.resize!(w, size; hint=size_hint)
         title!(w, title)
         finalizer(destroy, w)

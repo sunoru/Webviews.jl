@@ -17,6 +17,7 @@ export terminate,
 using JSON3: JSON3
 
 using ..Consts
+using ..Consts: WebviewStatus, WEBVIEW_PENDING, WEBVIEW_RUNNING, WEBVIEW_DESTORYED
 abstract type AbstractWebview end
 abstract type AbstractPlatformImpl end
 
@@ -40,7 +41,7 @@ Stops the main loop. It is safe to call this function from another other backgro
 """
 @forward terminate(w)
 
-@forward is_destroyed(w)
+@forward is_shown(w)
 
 """
     destroy(w::Webview)
@@ -48,12 +49,13 @@ Stops the main loop. It is safe to call this function from another other backgro
 Destroys the webview and closes the window along with freeing all internal resources.
 """
 function destroy(w::AbstractWebview)
-    is_destroyed(w) && return
+    w.status ≡ WEBVIEW_DESTORYED && return
     for key in keys(w.callback_handler.callbacks)
         unbind(w, key)
     end
-    terminate(w)
+    is_shown(w.platform) && terminate(w)
     destroy(w.platform)
+    w.status = WEBVIEW_DESTORYED
     nothing
 end
 destroy(::AbstractPlatformImpl) = nothing
@@ -65,7 +67,12 @@ Runs the webview event loop. Runs the main event loop until it's terminated.
 After this function exits, the webview is automatically destroyed.
 """
 function Base.run(w::AbstractWebview)
-    is_destroyed(w) && error("Webview is already destroyed")
+    w.status ≡ WEBVIEW_DESTORYED && error("Webview is already destroyed")
+    if w.status ≡ WEBVIEW_RUNNING
+        @warn "Webview is already running"
+        return
+    end
+    w.status = WEBVIEW_PENDING
     run(w.platform)
     destroy(w)
 end
@@ -183,30 +190,7 @@ the arguments passed from the JavaScript function call.
 
 The callback function must has the method `f(seq::String, req::String, [arg::Any])`.
 """
-function bind_raw(f::Function, w::AbstractWebview, name::AbstractString, arg=nothing)
-    bind_raw(f, w.callback_handler, name, arg)
-    js = "((function() { var name = '$name';
-      var RPC = window._rpc = (window._rpc || {nextSeq: 1});
-      window[name] = function() {
-        var seq = RPC.nextSeq++;
-        var promise = new Promise(function(resolve, reject) {
-          RPC[seq] = {
-            resolve: resolve,
-            reject: reject,
-          };
-        });
-        window.external.invoke(JSON.stringify({
-          id: seq,
-          method: name,
-          params: Array.prototype.slice.call(arguments),
-        }));
-        return promise;
-      }
-    })())"
-    init!(w, js)
-    eval!(w, js)
-    nothing
-end
+function bind_raw end
 
 """
     bind(f::Function, w::Webview, name::AbstractString)
@@ -235,7 +219,7 @@ end
 
 Unbinds a previously bound function freeing its resource and removing it from the webview JavaScript context.
 """
-unbind(w, name::AbstractString) = unbind(w.callback_handler, name)
+function unbind end
 
 """
     return_raw(w::Webview, seq::String, success::Bool, result_or_err)
