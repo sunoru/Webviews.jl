@@ -4,10 +4,11 @@ const SEL = Ptr{Cvoid}
 macro msg_send(args...)
     rettype, args = args[1], collect(args[2:end])
     for i in eachindex(args)
-        if args[i].head ≡ :(::)
-            args[i] = :($(esc(args[i].args[1]))::$(esc(args[i].args[2])))
+        argi = args[i]
+        if argi isa Expr && argi.head ≡ :(::)
+            args[i] = :($(esc(argi.args[1]))::$(esc(argi.args[2])))
         else
-            args[i] = :($(esc(args[i]))::Ptr{Cvoid})
+            args[i] = :($(esc(argi))::Ptr{Cvoid})
         end
     end
     quote
