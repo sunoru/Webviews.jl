@@ -81,7 +81,7 @@ function API.run(::Webview)
             continue
         end
         if msg.message == WM_APP
-            ptr = Ptr{Cvoid}(msg.lParam);
+            ptr = Ptr{Cvoid}(msg.lParam)
             _dispatch(ptr)
         elseif msg.message == WM_QUIT
             return
@@ -129,14 +129,14 @@ function API.resize!(w::Webview, size::Tuple{Integer,Integer}; hint::WindowSizeH
 end
 API.sizehint(w::Webview) = w.sizehint
 
-API.navigate!(w::Webview, url::AbstractString) =
-    @ccall libwebview.webview_navigate(w::Ptr{Cvoid}, url::Cstring)::Cvoid
-API.html!(w::Webview, html::AbstractString) =
-    @ccall libwebview.webview_set_html(w::Ptr{Cvoid}, html::Cstring)::Cvoid
-API.init!(w::Webview, js::AbstractString) =
-    @ccall libwebview.webview_init(w::Ptr{Cvoid}, js::Cstring)::Cvoid
-API.eval!(w::Webview, js::AbstractString) =
-    @ccall libwebview.webview_eval(w::Ptr{Cvoid}, js::Cstring)::Cvoid
+API.navigate!(w::Webview, url::AbstractString) = (
+    (@ccall libwebview.webview_navigate(w::Ptr{Cvoid}, url::Cstring)::Cvoid); w)
+API.html!(w::Webview, html::AbstractString) = (
+    (@ccall libwebview.webview_set_html(w::Ptr{Cvoid}, html::Cstring)::Cvoid); w)
+API.init!(w::Webview, js::AbstractString) = (
+    (@ccall libwebview.webview_init(w::Ptr{Cvoid}, js::Cstring)::Cvoid); w)
+API.eval!(w::Webview, js::AbstractString) = (
+    (@ccall libwebview.webview_eval(w::Ptr{Cvoid}, js::Cstring)::Cvoid); w)
 
 _binding_wrapper(seq::Ptr{Cchar}, req::Ptr{Cchar}, ref::Ptr{Cvoid}) = begin
     try
