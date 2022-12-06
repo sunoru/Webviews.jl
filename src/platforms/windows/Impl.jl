@@ -40,6 +40,8 @@ setup_platform() = nothing
 mutable struct Webview <: AbstractPlatformImpl
     const ptr::Ptr{Cvoid}
     const timer_id::Cuint
+    const main_thread::DWORD
+    const dispatched::Set{Base.RefValue{Tuple{Webview,Function}}}
     sizehint::WindowSizeHint
 end
 
@@ -57,7 +59,8 @@ function Webview(
         window::Ptr{Cvoid}, 0::UInt, TIMEOUT_INTERVAL::Cuint,
         @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid}, Cuint, UInt, UInt32))::Ptr{Cvoid}::Ptr{Cvoid}
     )::UInt
-    Webview(ptr, timer_id, WEBVIEW_HINT_NONE)
+    main_thread = @ccall GetCurrentThreadId()::DWORD
+    Webview(ptr, timer_id, main_thread, Set(), WEBVIEW_HINT_NONE)
 end
 Base.cconvert(::Type{Ptr{Cvoid}}, w::Webview) = w.ptr
 
@@ -65,8 +68,43 @@ API.window_handle(w::Webview) = @ccall libwebview.webview_get_window(w::Ptr{Cvoi
 API.terminate(w::Webview) = @ccall libwebview.webview_terminate(w::Ptr{Cvoid})::Cvoid
 API.destroy(w::Webview) = @ccall libwebview.webview_destroy(w::Ptr{Cvoid})::Cvoid
 API.is_shown(w::Webview) = @ccall "user32".IsWindow(window_handle(w)::Ptr{Cvoid})::Bool
-API.run(w::Webview) = @ccall libwebview.webview_run(w::Ptr{Cvoid})::Cvoid
+
+function API.run(::Webview)
+    # @ccall libwebview.webview_run(w::Ptr{Cvoid})::Cvoid
+    ref = Ref{MSG}()
+    while (
+        res = @ccall "user32".GetMessageW(ref::Ptr{MSG}, C_NULL::Ptr{Cvoid}, 0::Cuint, 0::Cuint)::Cint
+    ) ≠ -1
+        msg = ref[]
+        if msg.hwnd ≢ C_NULL
+            @ccall "user32".TranslateMessage(ref::Ptr{MSG})::Bool
+            @ccall "user32".DispatchMessageW(ref::Ptr{MSG})::Clong
+            continue
+        end
+        if msg.message == WM_APP
+            ptr = Ptr{Cvoid}(msg.lParam);
+            _dispatched(ptr)
+        elseif msg.message == WM_QUIT
+            return
+        end
+    end
+end
+
 function API.dispatch(f::Function, w::Webview)
+    cf = @cfunction(_dispatched, Cint, (Ptr{Cvoid},))
+    ref = Ref{Tuple{Webview,Function}}((w, f))
+    push!(w.dispatched, ref)
+    ptr = pointer_from_objref(ref)
+    ret = @ccall "user32".PostThreadMessageW(
+        w.main_thread::DWORD,
+        WM_APP::Cuint,
+        0::WPARAM,
+        LPARAM(ptr)::LPARAM
+    )::Bool
+    if !ret
+        pop!(w.dispatched, ref)
+        @warn "Failed to dispatch function"
+    end
 end
 
 API.title!(w::Webview, title::AbstractString) = @ccall libwebview.webview_set_title(

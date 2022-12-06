@@ -5,7 +5,7 @@ include("../common.jl")
 mutable struct Webview <: AbstractPlatformImpl
     const gtk_window_handle::Ptr{Cvoid}
     const webview_handle::Ptr{Cvoid}
-    dispatched::Set{Base.RefValue{Tuple{Webview,Function}}}
+    const dispatched::Set{Base.RefValue{Tuple{Webview,Function}}}
     sizehint::WindowSizeHint
 
     function Webview(
@@ -116,26 +116,14 @@ function API.run(w::Webview)
     @gcall gtk_main()
 end
 
-function _dispatched(p::Ptr{Cvoid})
-    cd = unsafe_pointer_to_objref(Ptr{Base.RefValue{Tuple{Webview,Function}}}(p))
-    w, f = cd[]
-    try
-        f()
-    finally
-        delete!(w.dispatched, cd)
-    end
-    Cint(false)
-end
-
 function API.dispatch(f::Function, w::Webview)
     cf = @cfunction(_dispatched, Cint, (Ptr{Cvoid},))
     ref = Ref{Tuple{Webview,Function}}((w, f))
     push!(w.dispatched, ref)
-    ptr = pointer_from_objref(ref)
     @gcall g_idle_add_full(
         100::Cint,  # G_PRIORITY_HIGH_IDLE
         cf::Ptr{Cvoid},
-        ptr::Ptr{Cvoid},
+        ref::Ptr{Cvoid},
         C_NULL::Ptr{Cvoid}
     )
 end

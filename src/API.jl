@@ -78,12 +78,14 @@ function Base.run(w::AbstractWebview)
 end
 
 """
-    dispatch(f::Function, w, arg)
+    dispatch(f::Function, w::Webview, [arg])
 
 Posts a function to be executed on the main thread. You normally do not need
 to call this function, unless you want to tweak the native window.
+
+The function `f` will be called with two arguments: the webview and the `arg`.
 """
-function dispatch(f::Function, w::AbstractWebview, arg)
+function dispatch(f::Function, w::AbstractWebview, arg=nothing)
     dispatch(w.platform) do
         f(w, arg)
     end

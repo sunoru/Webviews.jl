@@ -23,6 +23,21 @@ function _check_dependency(lib)
     end
 end
 
+function _dispatched(p::Ptr{Cvoid})
+    cd = nothing
+    w = nothing
+    try
+        cd = unsafe_pointer_to_objref(Ptr{Base.RefValue{Tuple{Webview,Function}}}(p))
+        w, f = cd[]
+        f()
+    finally
+        if !isnothing(cd) && !isnothing(w)
+            delete!(w.dispatched, cd)
+        end
+    end
+    Cint(false)
+end
+
 @static if !Sys.iswindows()
 
 # Since we are using a workaround on Windows.

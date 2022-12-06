@@ -26,6 +26,9 @@ using Webviews
         if step == 1
             html!(webview, html)
         elseif step == 2
+            dispatch(webview, true) do w, _
+                @test w == webview
+            end
             navigate!(webview, "http://localhost:8080")
         elseif step == 3
             eval!(webview, "end_test(document.body.innerHTML)")
