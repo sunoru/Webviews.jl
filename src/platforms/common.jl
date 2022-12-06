@@ -5,7 +5,7 @@ using JSON3: JSON3
 using ..Consts
 using ..Consts: TIMEOUT_INTERVAL
 using ..API
-using ..API: AbstractPlatformImpl
+using ..API: AbstractWebview, AbstractPlatformImpl
 using ..Utils: CallbackHandler, on_message
 
 _event_loop_timeout(_...) = (yield(); nothing)

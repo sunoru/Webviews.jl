@@ -153,7 +153,7 @@ _binding_wrapper(seq::Ptr{Cchar}, req::Ptr{Cchar}, ref::Ptr{Cvoid}) = begin
     nothing
 end
 
-function API.bind_raw(f::Function, w::API.AbstractWebview, name::AbstractString, arg=nothing)
+function API.bind_raw(f::Function, w::AbstractWebview, name::AbstractString, arg=nothing)
     API.bind_raw(f, w.callback_handler, name, arg)
     ref = w.callback_handler.callbacks[name]
     @ccall libwebview.webview_bind(
@@ -164,7 +164,7 @@ function API.bind_raw(f::Function, w::API.AbstractWebview, name::AbstractString,
     nothing
 end
 
-function API.unbind(w::API.AbstractWebview, name::AbstractString)
+function API.unbind(w::AbstractWebview, name::AbstractString)
     @ccall libwebview.webview_unbind(w.platform::Ptr{Cvoid}, name::Cstring)::Cvoid
     unbind(w.callback_handler, name)
 end
