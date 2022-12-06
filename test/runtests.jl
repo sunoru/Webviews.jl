@@ -11,18 +11,19 @@ using Webviews
         title="Test",
         debug=true
     )
-    resize!(webview, (320, 240))
-    @test size(webview) == (320, 240)
-    resize!(webview, (500, 500); hint=WEBVIEW_HINT_MAX)
-    @test size(webview) == (320, 240)
     @test window_handle(webview) != C_NULL
+    resize!(webview, (320, 240))
     html = """<html><body><h1>Hello from Julia v$VERSION</h1></body></html>"""
     step = 0
     bind(webview, "run_test") do _
         step += 1
         if step == 1
+            @test size(webview) == (320, 240)
+            resize!(webview, (240, 240))
+            resize!(webview, (500, 500); hint=WEBVIEW_HINT_MAX)
             html!(webview, html)
         elseif step == 2
+            @test size(webview) == (240, 240)
             dispatch(webview, true) do w, _
                 @test w == webview
             end
@@ -38,8 +39,6 @@ using Webviews
         terminate(webview)
         # On macOS, we need to send an event explicitly to let the event loop ends
         if WEBVIEW_PLATFORM == WEBVIEW_COCOA
-            # # Wait for the window to show.
-            # Webviews.PlatformImpl.sleep(1)
             resize!(webview, (200, 200))
         end
     end
