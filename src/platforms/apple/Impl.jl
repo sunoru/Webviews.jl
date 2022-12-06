@@ -77,9 +77,10 @@ function Webview(
 end
 
 API.window_handle(w::Webview) = w.window
-API.terminate(::Webview) =
+API.terminate(::Union{Webview, Nothing}=nothing) =
     let app = get_shared_application()
-        @msg_send Cvoid app a"terminate:"sel C_NULL
+        # Stop the main event loop instead of terminating the process.
+        @msg_send Cvoid app a"stop:"sel C_NULL
     end
 API.is_shown(w::Webview) = @msg_send Bool w.window a"isVisible"sel
 API.run(::Webview) =

@@ -36,7 +36,6 @@ using Webviews
     end
     bind(webview, "end_test") do (x,)
         @test x == "<h1>Hello</h1>"
-        # `terminate` does not work on macOS.
         close(server)
         terminate(webview)
     end

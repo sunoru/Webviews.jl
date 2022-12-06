@@ -3,7 +3,7 @@ using HTTP
 using Webviews
 
 server = HTTP.serve!(8080) do _
-    HTTP.Response("<h1>Hello World</h1>")
+    HTTP.Response("<html><body><h1>Hello World</h1></body></html>")
 end
 
 webview = Webview()

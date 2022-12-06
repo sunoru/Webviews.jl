@@ -23,6 +23,20 @@ function create_app_delegate(w::Webview)
         )::Ptr{Cvoid},
         "c@:@"::Cstring
     )::Bool
+    @ccall class_addMethod(
+        cls::ID,
+        a"applicationShouldTerminate:"sel::SEL,
+        @cfunction(
+            (_1, _2, _3) -> begin
+                # Use `terminate` to stop the main event loop instead of
+                # immediately terminating the application (process).
+                terminate()
+                false
+            end,
+            Bool, (ID, SEL, ID)
+        )::Ptr{Cvoid},
+        "c@:@"::Cstring
+    )::Bool
     if w.parent_window ≡ C_NULL
         @ccall class_addMethod(
             cls::ID,
