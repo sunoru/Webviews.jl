@@ -51,11 +51,12 @@ function Webview(
     debug::Bool,
     unsafe_window_handle::Ptr{Cvoid}
 )
+    main_queue = cglobal(:_dispatch_main_q)
     w = Webview(;
         parent_window=unsafe_window_handle,
         debug,
         callback_handler,
-        main_queue=@ccall dispatch_get_main_queue()::ID
+        main_queue
     )
     this_ptr = pointer_from_objref(w)
     app = get_shared_application()
