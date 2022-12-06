@@ -10,7 +10,7 @@ Base.@kwdef mutable struct PlatformSettings
 end
 const PLATFORM = PlatformSettings()
 
-check_dependency() = nothing
+check_dependency() = true
 function setup_platform()
     # Register the yielder in the shared `NSApplication`.
     app = get_shared_application()
