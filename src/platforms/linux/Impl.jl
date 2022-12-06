@@ -2,6 +2,28 @@ module LinuxImpl
 
 include("../common.jl")
 
+const libwebkit2gtk = "libwebkit2gtk-4.0.so.37"
+
+macro gcall(expr)
+    if expr.head ≡ :call
+        expr = :($expr::Cvoid)
+    end
+    @assert expr.head ≡ :(::) && expr.args[1].head ≡ :call
+    expr.args[1].args[1] = :(libwebkit2gtk.$(expr.args[1].args[1]))
+    :(@ccall $expr) |> esc
+end
+
+macro g_signal_connect(instance, signal, data, cf)
+    quote
+        ccall(
+            (:g_signal_connect_data, libwebkit2gtk),
+            Cvoid,
+            (Ptr{Cvoid}, Cstring, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Cuint),
+            $instance, $signal, $cf, pointer_from_objref($data), C_NULL, 0
+        )
+    end |> esc
+end
+
 mutable struct Webview <: AbstractPlatformImpl
     const gtk_window_handle::Ptr{Cvoid}
     const webview_handle::Ptr{Cvoid}
@@ -63,23 +85,12 @@ mutable struct Webview <: AbstractPlatformImpl
     end
 end
 
-const libwebkit2gtk = "libwebkit2gtk-4.0"
-
-macro gcall(expr)
-    if expr.head ≡ :call
-        expr = :($expr::Cvoid)
-    end
-    @assert expr.head ≡ :(::) && expr.args[1].head ≡ :call
-    expr.args[1].args[1] = :(libwebkit2gtk.$(expr.args[1].args[1]))
-    :(@ccall $expr) |> esc
-end
-
 check_dependency() = _check_dependency(libwebkit2gtk)
 
 function setup_platform()
     cb = @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid},))
     PLATFORM.timeout_id = @gcall g_timeout_add(
-        TIMEOUT_INTEVAL::Cuint,
+        TIMEOUT_INTERVAL::Cuint,
         cb::Ptr{Cvoid},
         C_NULL::Ptr{Cvoid},
     )::UInt64
@@ -91,17 +102,6 @@ Base.@kwdef mutable struct PlatformSettings
 end
 const PLATFORM = PlatformSettings()
 
-macro g_signal_connect(instance, signal, data, cf)
-    quote
-        ccall(
-            (:g_signal_connect_data, libwebkit2gtk),
-            Cvoid,
-            (Ptr{Cvoid}, Cstring, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Cuint),
-            $instance, $signal, $cf, pointer_from_objref($data), C_NULL, 0
-        )
-    end |> esc
-end
-
 function get_string_from_js_result(r::Ptr{Cvoid})
     value = @gcall webkit_javascript_result_get_js_value(r::Ptr{Cvoid})::Ptr{Cvoid}
     s = @gcall jsc_value_to_string(value::Ptr{Cvoid})::Ptr{Cchar}
@@ -111,19 +111,17 @@ end
 API.window_handle(w::Webview) = w.gtk_window_handle
 API.terminate(::Webview) = @gcall gtk_main_quit()
 API.is_shown(::Webview) = 0 ≠ @gcall gtk_main_level()::Cuint
-function API.run(w::Webview)
-    w.status = WEBVIEW_RUNNING
-    @gcall gtk_main()
-end
+API.run(::Webview) = @gcall gtk_main()
 
 function API.dispatch(f::Function, w::Webview)
-    cf = @cfunction(_dispatched, Cint, (Ptr{Cvoid},))
+    cf = @cfunction(_dispatch, Cint, (Ptr{Cvoid},))
     ref = Ref{Tuple{Webview,Function}}((w, f))
+    ptr = pointer_from_objref(ref)
     push!(w.dispatched, ref)
     @gcall g_idle_add_full(
         100::Cint,  # G_PRIORITY_HIGH_IDLE
         cf::Ptr{Cvoid},
-        ref::Ptr{Cvoid},
+        ptr::Ptr{Cvoid},
         C_NULL::Ptr{Cvoid}
     )
 end

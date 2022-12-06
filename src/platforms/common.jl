@@ -23,11 +23,12 @@ function _check_dependency(lib)
     end
 end
 
-function _dispatched(p::Ptr{Cvoid})
+function _dispatch(p::Ptr{Cvoid})
+    @show p
     cd = nothing
     w = nothing
     try
-        cd = unsafe_pointer_to_objref(Ptr{Base.RefValue{Tuple{Webview,Function}}}(p))
+        cd = unsafe_pointer_to_objref(Ptr{Tuple{Webview,Function}}(p))
         w, f = cd[]
         f()
     finally

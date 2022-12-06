@@ -70,7 +70,6 @@ API.destroy(w::Webview) = @ccall libwebview.webview_destroy(w::Ptr{Cvoid})::Cvoi
 API.is_shown(w::Webview) = @ccall "user32".IsWindow(window_handle(w)::Ptr{Cvoid})::Bool
 
 function API.run(::Webview)
-    # @ccall libwebview.webview_run(w::Ptr{Cvoid})::Cvoid
     ref = Ref{MSG}()
     while (
         res = @ccall "user32".GetMessageW(ref::Ptr{MSG}, C_NULL::Ptr{Cvoid}, 0::Cuint, 0::Cuint)::Cint
@@ -83,7 +82,7 @@ function API.run(::Webview)
         end
         if msg.message == WM_APP
             ptr = Ptr{Cvoid}(msg.lParam);
-            _dispatched(ptr)
+            _dispatch(ptr)
         elseif msg.message == WM_QUIT
             return
         end
@@ -91,7 +90,6 @@ function API.run(::Webview)
 end
 
 function API.dispatch(f::Function, w::Webview)
-    cf = @cfunction(_dispatched, Cint, (Ptr{Cvoid},))
     ref = Ref{Tuple{Webview,Function}}((w, f))
     push!(w.dispatched, ref)
     ptr = pointer_from_objref(ref)
