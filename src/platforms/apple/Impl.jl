@@ -18,7 +18,7 @@ function setup_platform()
     # Register the yielder in the shared `NSApplication`.
     app = get_shared_application()
     @ccall class_replaceMethod(
-        a"NSApplication"cls::Ptr{Cvoid}, a"webviewsjlTick:"sel::Ptr{Cvoid},
+        a"NSApplication"cls::Ptr{Cvoid}, a"webviewsjlYielder:"sel::Ptr{Cvoid},
         @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}))::Ptr{Cvoid},
         "v@:@"::Cstring
     )::Ptr{Cvoid}
@@ -28,10 +28,16 @@ function setup_platform()
         a"scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:"sel,
         (TIMEOUT_INTERVAL / 1000)::Cdouble,
         app,
-        a"webviewsjlTick:"sel,
+        a"webviewsjlYielder:"sel,
         C_NULL,
         true::Bool
     )
+    @ccall class_replaceMethod(
+        a"NSApplication"cls::Ptr{Cvoid}, a"webviewsjlTimeout:"sel::Ptr{Cvoid},
+        @cfunction(_timeout, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}))::Ptr{Cvoid},
+        "v@:@"::Cstring
+    )::Ptr{Cvoid}
+    nothing
 end
 
 Base.@kwdef mutable struct Webview <: AbstractPlatformImpl
@@ -39,7 +45,6 @@ Base.@kwdef mutable struct Webview <: AbstractPlatformImpl
     const debug::Bool
     const callback_handler::CallbackHandler
     const main_queue::ID = cglobal(:_dispatch_main_q)
-    const dispatched::Set{Base.RefValue{Tuple{Webview,Function}}} = Set()
     window::ID = C_NULL
     config::ID = C_NULL
     manager::ID = C_NULL
@@ -90,14 +95,20 @@ API.run(::Webview) =
     let app = get_shared_application()
         @msg_send Cvoid app a"run"sel
     end
+
+function _dispatch(ptr::Ptr{Cvoid})
+    call_dispatch(ptr)
+    clear_dispatch(ptr)
+    nothing
+end
+
 function API.dispatch(f::Function, w::Webview)
-    ref = Ref{Tuple{Webview,Function}}((w, f))
-    push!(w.dispatched, ref)
-    ptr = pointer_from_objref(ref)
+    cf = @cfunction(_dispatch, Cvoid, (Ptr{Cvoid},))
+    ptr = setup_dispatch(f, w.callback_handler)
     @ccall dispatch_async_f(
         w.main_queue::ID,
         ptr::Ptr{Cvoid},
-        @cfunction((arg) -> (_dispatch(arg); nothing), Cvoid, (Ptr{Cvoid},))::Ptr{Cvoid}
+        cf::Ptr{Cvoid}
     )::Cvoid
 end
 
@@ -162,6 +173,41 @@ end
 function API.eval!(w::Webview, js::AbstractString)
     @msg_send Cvoid w.webview a"evaluateJavaScript:completionHandler:"sel @a_str(js, "str") C_NULL
     w
+end
+
+function _timeout(_1, _2, timer::ID)
+    @show valid = @msg_send Bool timer a"isValid"sel
+    valid || return
+    fp = @msg_send ID timer a"userInfo"sel
+    call_dispatch(fp)
+    interval = @msg_send Cdouble timer a"timeInterval"sel
+    interval > 0 || return
+    clear_timeout(fp)
+    nothing
+end
+
+function API.set_timeout(f::Function, w::Webview, interval::Real; repeat=false)
+    fp = setup_dispatch(f, w.callback_handler)
+    app = get_shared_application()
+    timer_id = @msg_send(
+        Ptr{Cvoid},
+        a"NSTimer"cls,
+        a"scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:"sel,
+        interval::Cdouble,
+        app,
+        a"webviewsjlTimeout:"sel,
+        fp,
+        repeat::Bool
+    )
+    set_dispatch_id(fp, timer_id)
+    fp
+end
+
+function API.clear_timeout(::Webview, timer_id::Ptr{Cvoid})
+    timer = clear_dispatch(timer_id)
+    isnothing(timer) && return
+    @msg_send Cvoid timer a"invalidate"sel
+    nothing
 end
 
 end
