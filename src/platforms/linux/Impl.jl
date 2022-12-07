@@ -1,6 +1,7 @@
 module LinuxImpl
 
 include("../common.jl")
+include("../common_bind.jl")
 
 const libwebkit2gtk = "libwebkit2gtk-4.0.so.37"
 
@@ -92,7 +93,7 @@ function setup_platform()
         TIMEOUT_INTERVAL::Cuint,
         cb::Ptr{Cvoid},
         C_NULL::Ptr{Cvoid},
-    )::UInt64
+    )::Cuint
     nothing
 end
 

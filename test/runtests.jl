@@ -15,7 +15,7 @@ using Webviews
     resize!(webview, (320, 240))
     html = """<html><body><h1>Hello from Julia v$VERSION</h1></body></html>"""
     step = 0
-    bind(webview, "run_test") do
+    bind(webview, "run_test") do _
         step += 1
         if step == 1
             @test size(webview) == (320, 240)

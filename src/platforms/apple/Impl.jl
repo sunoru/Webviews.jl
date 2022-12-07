@@ -2,6 +2,7 @@ module AppleImpl
 # TODO
 
 include("../common.jl")
+include("../common_bind.jl")
 
 include("./objc.jl")
 
