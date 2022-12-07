@@ -1,15 +1,18 @@
 name = "Webviews"
 uuid = "b7e775b7-052a-4229-9250-fe08ae90f9c6"
 authors = ["Sunoru <s@sunoru.com>"]
-version = "0.1.0"
+version = "1.0.0"
 
 [deps]
 Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
-JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
 [compat]
 Downloads = "1.6"
-JSON = "0.21"
+JSON3 = "1.12"
+Reexport = "1.2"
 julia = "1.8"
