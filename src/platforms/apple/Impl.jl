@@ -179,7 +179,7 @@ function _timeout(_1, _2, timer::ID)
     call_dispatch(fp)
     interval = @msg_send Cdouble timer a"timeInterval"sel
     interval > 0 || return
-    clear_timeout(fp)
+    _clear_timeout(fp)
     nothing
 end
 
@@ -192,13 +192,12 @@ function prepare_timeout()
     nothing
 end
 
-
 function API.set_timeout(f::Function, w::Webview, interval::Real; repeat=false)
     fp = setup_dispatch(f, w.callback_handler)
     user_info = @msg_send ID a"NSValue"cls a"valueWithPointer:"sel fp
     app = get_shared_application()
     timer_id = @msg_send(
-        Ptr{Cvoid},
+        ID,
         a"NSTimer"cls,
         a"scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:"sel,
         interval::Cdouble,
@@ -207,15 +206,16 @@ function API.set_timeout(f::Function, w::Webview, interval::Real; repeat=false)
         user_info,
         repeat::Bool
     )
-    set_dispatch_id(fp, timer_id)
+    set_dispatch_id(fp, UInt64(timer_id))
     fp
 end
 
-function API.clear_timeout(::Webview, timer_id::Ptr{Cvoid})
+function _clear_timeout(timer_id::Ptr{Cvoid})
     timer = clear_dispatch(timer_id)
     isnothing(timer) && return
-    @msg_send Cvoid timer a"invalidate"sel
+    @msg_send Cvoid Ptr{Cvoid}(timer) a"invalidate"sel
     nothing
 end
+API.clear_timeout(::Webview, timer_id::Ptr{Cvoid}) = _clear_timeout(timer_id)
 
 end
