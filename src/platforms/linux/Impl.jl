@@ -27,7 +27,7 @@ end
 mutable struct Webview <: AbstractPlatformImpl
     const gtk_window_handle::Ptr{Cvoid}
     const webview_handle::Ptr{Cvoid}
-    const dispatched::Set{Base.RefValue{Tuple{Webview,Function}}}
+    const callback_handler::CallbackHandler
 
     function Webview(
         callback_handler::CallbackHandler,
@@ -43,7 +43,7 @@ mutable struct Webview <: AbstractPlatformImpl
             unsafe_window_handle
         end
         webview = @gcall webkit_web_view_new()::Ptr{Cvoid}
-        w = new(window, webview, Set())
+        w = new(window, webview, callback_handler)
 
         @g_signal_connect(
             window, "destroy", w,
@@ -112,11 +112,19 @@ API.terminate(::Webview) = @gcall gtk_main_quit()
 API.is_shown(::Webview) = 0 ≠ @gcall gtk_main_level()::Cuint
 API.run(::Webview) = @gcall gtk_main()
 
+function _dispatch(p::Ptr{Cvoid})
+    call_dispatch(p)
+    clear_dispatch(p)
+    Cint(false)  # G_SOURCE_REMOVE
+end
+function _dispatch_repeat(p::Ptr{Cvoid})
+    call_dispatch(p)
+    Cint(true)  # G_SOURCE_CONTINUE
+end
+
 function API.dispatch(f::Function, w::Webview)
     cf = @cfunction(_dispatch, Cint, (Ptr{Cvoid},))
-    ref = Ref{Tuple{Webview,Function}}((w, f))
-    ptr = pointer_from_objref(ref)
-    push!(w.dispatched, ref)
+    ptr = setup_dispatch(f, w.callback_handler)
     @gcall g_idle_add_full(
         100::Cint,  # G_PRIORITY_HIGH_IDLE
         cf::Ptr{Cvoid},
@@ -219,5 +227,27 @@ API.eval!(w::Webview, js::AbstractString) = (@gcall webkit_web_view_run_javascri
     C_NULL::Ptr{Cvoid},
     C_NULL::Ptr{Cvoid}
 )::Cvoid; w)
+
+function API.set_timeout(f::Function, w::Webview, interval::Real; repeat=false)
+    fp = setup_dispatch(f, w.callback_handler)
+    timer_id = @gcall g_timeout_add(
+        round(Cuint, interval * 1000)::Cuint,
+        if repeat
+            @cfunction(_dispatch_repeat, Cint, (Ptr{Cvoid},))
+        else
+            @cfunction(_dispatch, Cint, (Ptr{Cvoid},))
+        end::Ptr{Cvoid},
+        fp::Ptr{Cvoid}
+    )::Cuint
+    set_dispatch_id(fp, timer_id)
+    fp
+end
+
+function API.clear_timeout(::Webview, timer_id::Ptr{Cvoid})
+    id = clear_dispatch(timer_id)
+    isnothing(id) && return
+    @gcall g_source_remove(id::Cuint)::Cint
+    nothing
+end
 
 end

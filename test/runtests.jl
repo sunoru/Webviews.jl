@@ -15,17 +15,21 @@ using Webviews
     resize!(webview, (320, 240))
     html = """<html><body><h1>Hello from Julia v$VERSION</h1></body></html>"""
     step = 0
-    bind(webview, "run_test") do _
+    bind(webview, "run_test") do
         step += 1
         if step == 1
             @test size(webview) == (320, 240)
             resize!(webview, (240, 240))
             resize!(webview, (500, 500); hint=WEBVIEW_HINT_MAX)
-            html!(webview, html)
+            timer = set_timeout(webview, 0.5, repeat=true) do
+                @test true
+                clear_timeout(webview, timer)
+                html!(webview, html)
+            end
         elseif step == 2
             @test size(webview) == (240, 240)
-            dispatch(webview, true) do w, _
-                @test w == webview
+            dispatch(webview) do
+                @test true
             end
             navigate!(webview, "http://localhost:8080")
         elseif step == 3
@@ -45,4 +49,5 @@ using Webviews
     init!(webview, "run_test().catch(console.error)")
     navigate!(webview, "data:text/html,$(HTTP.escapeuri(html))")
     run(webview)
+    @show Test.get_testset()
 end

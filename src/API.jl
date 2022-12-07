@@ -11,7 +11,9 @@ export terminate,
     eval!,
     bind_raw,
     unbind,
-    return_raw
+    return_raw,
+    set_timeout,
+    clear_timeout
 
 using JSON3: JSON3
 
@@ -77,17 +79,15 @@ function Base.run(w::AbstractWebview)
 end
 
 """
-    dispatch(f::Function, w::Webview, [arg])
+    dispatch(f::Function, w::Webview)
 
 Posts a function to be executed on the main thread. You normally do not need
 to call this function, unless you want to tweak the native window.
 
-The function `f` will be called with two arguments: the webview and the `arg`.
+The function `f` should be callable without arguments.
 """
-function dispatch(f::Function, w::AbstractWebview, arg=nothing)
-    dispatch(w.platform) do
-        f(w, arg)
-    end
+function dispatch(f::Function, w::AbstractWebview)
+    dispatch(f, w.platform)
     nothing
 end
 
@@ -122,8 +122,8 @@ Sets the native window size.
 """
 function Base.resize!(
     w::AbstractWebview,
-    size::Tuple{Integer, Integer};
-    hint::Union{WindowSizeHint, Nothing}=WEBVIEW_HINT_NONE
+    size::Tuple{Integer,Integer};
+    hint::Union{WindowSizeHint,Nothing}=WEBVIEW_HINT_NONE
 )
     resize!(w.platform, size, hint=hint)
     w
@@ -161,7 +161,7 @@ is ignored. Use `bind` if you want to receive notifications about the results of
 @forward eval!(w, js::AbstractString)
 
 """
-    bind_raw(f::Function, w::Webview, name::AbstractString, [arg])
+    bind_raw(f::Function, w::Webview, name::AbstractString)
 
 Binds a callback so that it will appear in the webview with the given name
 as a global async JavaScript function. Callback receives a seq and req value.
@@ -169,7 +169,7 @@ The seq parameter is an identifier for using `Webviews.return_raw` to
 return a value while the req parameter is a string of an JSON array representing
 the arguments passed from the JavaScript function call.
 
-The callback function must has the method `f(seq::String, req::String, [arg::Any])`.
+The callback function must has the method `f(seq::String, req::String)`.
 """
 function bind_raw end
 
@@ -185,7 +185,7 @@ return value to the webview.
 The callback function must handle a `Tuple` as its argument.
 """
 function Base.bind(f::Function, w::AbstractWebview, name::AbstractString)
-    bind_raw(w, name) do seq, args, _
+    bind_raw(w, name) do seq, args
         try
             result = f(Tuple(args))
             _return(w, seq, true, result)
@@ -209,11 +209,11 @@ Allows to return a value from the native binding. Original request pointer
 must be provided to help internal RPC engine match requests with responses.
 """
 function return_raw(w::AbstractWebview, seq::Int, success::Bool, result_or_err::AbstractString)
-    dispatch(w, nothing) do w, _
+    dispatch(w) do
         if success
-            eval!(w, "window._rpc[$seq].resolve($result_or_err); delete window._rpc[$seq]");
+            eval!(w, "window._rpc[$seq].resolve($result_or_err); delete window._rpc[$seq]")
         else
-            eval!(w, "window._rpc[$seq].reject($result_or_err); delete window._rpc[$seq]");
+            eval!(w, "window._rpc[$seq].reject($result_or_err); delete window._rpc[$seq]")
         end
     end
 end
@@ -231,6 +231,24 @@ function _return(w::AbstractWebview, seq::Int, success::Bool, result)
     end
     return_raw(w, seq, success, s)
 end
+
+"""
+    set_timeout(f::Function, w::Webview, interval::Real; [repeat::Bool=false])
+
+Sets a function to be called after the given interval in webview's event loop.
+If `repeat` is `true`, `f` will be called repeatedly.
+The function `f` should be callable without arguments.
+
+This function returns a `timer_id::Ptr{Cvoid}` which can be used in `clear_timeout(webview, timer_id)`.
+"""
+set_timeout(f::Function, w::AbstractWebview, interval::Real; repeat::Bool=false) =
+    set_timeout(f, w.platform, interval; repeat)
+
+"""
+    clear_timeout(w::Webview, timer_id::Ptr{Cvoid})
+Clears a previously set timeout.
+"""
+@forward clear_timeout(w, timer_id::Ptr{Cvoid})
 
 const run = Base.run
 const size = Base.size
