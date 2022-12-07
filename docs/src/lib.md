@@ -27,4 +27,6 @@ bind_raw
 bind(::Function, ::Webview, ::AbstractString)
 unbind
 return_raw
+set_timeout
+clear_timeout
 ```
