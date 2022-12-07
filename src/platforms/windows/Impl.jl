@@ -42,10 +42,11 @@ mutable struct Webview <: AbstractPlatformImpl
     const timer_id::Cuint
     const main_thread::DWORD
     const dispatched::Set{Base.RefValue{Tuple{Webview,Function}}}
+    const callback_handler::CallbackHandler
 end
 
 function Webview(
-    _callback_handler::CallbackHandler,
+    callback_handler::CallbackHandler,
     debug::Bool,
     unsafe_window_handle::Ptr{Cvoid}
 )
@@ -59,7 +60,7 @@ function Webview(
         @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid}, Cuint, UInt, UInt32))::Ptr{Cvoid}::Ptr{Cvoid}
     )::UInt
     main_thread = @ccall GetCurrentThreadId()::DWORD
-    Webview(ptr, timer_id, main_thread, Set())
+    Webview(ptr, timer_id, main_thread, Set(), callback_handler)
 end
 Base.cconvert(::Type{Ptr{Cvoid}}, w::Webview) = w.ptr
 
@@ -148,7 +149,7 @@ _binding_wrapper(seq::Ptr{Cchar}, req::Ptr{Cchar}, ref::Ptr{Cvoid}) = begin
     nothing
 end
 
-function API.bind_raw(f::Function, w::AbstractWebview, name::AbstractString, arg=nothing)
+function API.bind_raw(f::Function, w::Webview, name::AbstractString, arg=nothing)
     API.bind_raw(f, w.callback_handler, name, arg)
     ref = w.callback_handler.callbacks[name]
     @ccall libwebview.webview_bind(

@@ -5,6 +5,7 @@ version = "1.0.0"
 
 [deps]
 Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+FunctionWrappers = "069b7b12-0de2-55c6-9aab-29f3d0a68a2e"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
@@ -13,6 +14,7 @@ SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
 [compat]
 Downloads = "1.6"
+FunctionWrappers = "1.1"
 JSON3 = "1.12"
 Reexport = "1.2"
 julia = "1.8"

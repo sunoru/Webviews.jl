@@ -21,7 +21,9 @@ using Webviews
             @test size(webview) == (320, 240)
             resize!(webview, (240, 240))
             resize!(webview, (500, 500); hint=WEBVIEW_HINT_MAX)
-            html!(webview, html)
+            set_timeout(webview, 0.5) do
+                html!(webview, html)
+            end
         elseif step == 2
             @test size(webview) == (240, 240)
             dispatch(webview, true) do w, _

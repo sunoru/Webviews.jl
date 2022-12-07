@@ -1,12 +1,14 @@
 using Libdl
 
+using FunctionWrappers: FunctionWrapper
 using JSON3: JSON3
 
 using ..Consts
 using ..Consts: TIMEOUT_INTERVAL
 using ..API
 using ..API: AbstractWebview, AbstractPlatformImpl
-using ..Utils: CallbackHandler, on_message
+using ..Utils: CallbackHandler, on_message,
+    setup_dispatch, call_dispatch, clear_dispatch
 
 _event_loop_timeout(_...) = (yield(); nothing)
 
@@ -23,25 +25,10 @@ function _check_dependency(lib)
     end
 end
 
-function _dispatch(p::Ptr{Cvoid})
-    cd = nothing
-    w = nothing
-    try
-        cd = unsafe_pointer_to_objref(Ptr{Tuple{Webview,Function}}(p))
-        w, f = cd[]
-        f()
-    finally
-        if !isnothing(cd) && !isnothing(w)
-            delete!(w.dispatched, cd)
-        end
-    end
-    Cint(false)
-end
-
 @static if !Sys.iswindows()
 
-# Since we are using a workaround on Windows.
-function API.bind_raw(f::Function, w::AbstractWebview, name::AbstractString, arg=nothing)
+# Since we are using a workaround on Windows, the following is only defined otherwise.
+function API.bind_raw(f::Function, w::AbstractPlatformImpl, name::AbstractString, arg=nothing)
     bind_raw(f, w.callback_handler, name, arg)
     js = "((function() { var name = '$name';
       var RPC = window._rpc = (window._rpc || {nextSeq: 1});

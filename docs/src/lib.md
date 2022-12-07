@@ -13,6 +13,8 @@ Webviews
 Webview
 WindowSizeHint
 run(::Webview)
+set_timeout
+clear_timeout
 terminate
 destroy
 dispatch

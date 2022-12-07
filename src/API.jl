@@ -171,7 +171,8 @@ the arguments passed from the JavaScript function call.
 
 The callback function must has the method `f(seq::String, req::String, [arg::Any])`.
 """
-function bind_raw end
+bind_raw(f::Function, w::AbstractWebview, name::AbstractString, arg=nothing) =
+    bind_raw(f, w.platform, name, arg)
 
 """
     bind(f::Function, w::Webview, name::AbstractString)
@@ -187,11 +188,13 @@ The callback function must handle a `Tuple` as its argument.
 function Base.bind(f::Function, w::AbstractWebview, name::AbstractString)
     bind_raw(w, name) do seq, args, _
         try
+            @show seq, args
             result = f(Tuple(args))
             _return(w, seq, true, result)
         catch err
             _return(w, seq, false, err)
         end
+        nothing
     end
 end
 
@@ -231,6 +234,23 @@ function _return(w::AbstractWebview, seq::Int, success::Bool, result)
     end
     return_raw(w, seq, success, s)
 end
+
+"""
+    set_timeout(f::Function, w::Webview, interval::Real; [repeat::Bool=false])
+
+Sets a function to be called after the given interval in webview's event loop.
+If `repeat` is `true`, the function will be called repeatedly.
+This function returns a `timer_id::Ptr{Cvoid}` which can be used in `clear_timeout(webview, timer_id)`.
+"""
+set_timeout(f::Function, w::AbstractWebview, interval::Real; repeat::Bool=false) =
+    set_timeout(f::Function, w.platform, interval; repeat)
+
+"""
+    clear_timeout(timer_id::Ptr{Cvoid})
+
+Clears a previously set timeout.
+"""
+@forward clear_timeout(w, timer_id::Ptr{Cvoid})
 
 const run = Base.run
 const size = Base.size
