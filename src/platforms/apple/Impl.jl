@@ -172,9 +172,12 @@ function API.eval!(w::Webview, js::AbstractString)
 end
 
 function _timeout(_1, _2, timer::ID)
+    @show timer
     valid = @msg_send Bool timer a"isValid"sel
+    @show valid
     valid || return
     fp = @msg_send ID timer a"userInfo"sel
+    @show fp
     call_dispatch(fp)
     interval = @msg_send Cdouble timer a"timeInterval"sel
     interval > 0 || return
@@ -193,6 +196,7 @@ end
 
 function API.set_timeout(f::Function, w::Webview, interval::Real; repeat=false)
     fp = setup_dispatch(f, w.callback_handler)
+    @show fp
     app = get_shared_application()
     timer_id = @msg_send(
         Ptr{Cvoid},
@@ -204,6 +208,7 @@ function API.set_timeout(f::Function, w::Webview, interval::Real; repeat=false)
         fp,
         repeat::Bool
     )
+    @show timer_id
     set_dispatch_id(fp, timer_id)
     fp
 end
