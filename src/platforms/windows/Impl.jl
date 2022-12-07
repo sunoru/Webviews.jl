@@ -74,7 +74,7 @@ function API.run(::Webview)
         res = @ccall "user32".GetMessageW(ref::Ptr{MSG}, C_NULL::Ptr{Cvoid}, 0::Cuint, 0::Cuint)::Cint
     ) ≠ -1
         msg = ref[]
-        if msg.hwnd ≢ C_NULL
+        if msg.hwnd ≢ C_NULL || msg.message == WM_TIMER
             @ccall "user32".TranslateMessage(ref::Ptr{MSG})::Bool
             @ccall "user32".DispatchMessageW(ref::Ptr{MSG})::Clong
             continue
@@ -133,26 +133,25 @@ API.init!(w::Webview, js::AbstractString) = (
 API.eval!(w::Webview, js::AbstractString) = (
     (@ccall libwebview.webview_eval(w::Ptr{Cvoid}, js::Cstring)::Cvoid); w)
 
-_binding_wrapper(seq::Ptr{Cchar}, req::Ptr{Cchar}, ref::Ptr{Cvoid}) = begin
+function _binding_wrapper(seq::Ptr{Cchar}, req::Ptr{Cchar}, ptr::Ptr{Cvoid})
     try
-        cd = unsafe_pointer_to_objref(Ptr{Tuple{Function,Any}}(ref))
-        f, arg = cd
+        f = unsafe_pointer_to_objref(ptr)::MessageCallback
         seq_id = JSON3.read(unsafe_string(seq))
         args = JSON3.read(unsafe_string(req))
-        f(seq_id, copy(args), arg)
+        f(seq_id, copy(args))
     catch e
         @debug e
     end
     nothing
 end
 
-function API.bind_raw(f::Function, w::AbstractWebview, name::AbstractString, arg=nothing)
-    API.bind_raw(f, w.callback_handler, name, arg)
+function API.bind_raw(f::Function, w::AbstractWebview, name::AbstractString)
+    API.bind_raw(f, w.callback_handler, name)
     ref = w.callback_handler.callbacks[name]
     @ccall libwebview.webview_bind(
         w.platform::Ptr{Cvoid}, name::Cstring,
         @cfunction(_binding_wrapper, Cvoid, (Ptr{Cchar}, Ptr{Cchar}, Ptr{Cvoid}))::Ptr{Cvoid},
-        ref::Ptr{Cvoid}
+        pointer_from_objref(ref)::Ptr{Cvoid}
     )::Cvoid
     nothing
 end
@@ -193,7 +192,7 @@ function API.set_timeout(f::Function, w::Webview, interval::Real; repeat=false)
             @cfunction(_timeout_repeat, Cvoid, (Ptr{Cvoid}, Cuint, UInt, UInt32))
         else
             @cfunction(_timeout, Cvoid, (Ptr{Cvoid}, Cuint, UInt, UInt32))
-        end::Ptr{Cvoid},
+        end::Ptr{Cvoid}
     )::UInt
     if timer_id == 0
         clear_dispatch(fp)

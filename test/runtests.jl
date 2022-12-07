@@ -26,6 +26,7 @@ using Webviews
                 clear_timeout(webview, timer)
                 html!(webview, html)
             end
+            @test timer ≢ C_NULL
         elseif step == 2
             @test size(webview) == (240, 240)
             dispatch(webview) do
@@ -49,5 +50,5 @@ using Webviews
     init!(webview, "run_test().catch(console.error)")
     navigate!(webview, "data:text/html,$(HTTP.escapeuri(html))")
     run(webview)
-    @show Test.get_testset()
+    @test Test.get_testset().n_passed == 7
 end

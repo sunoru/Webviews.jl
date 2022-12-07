@@ -6,7 +6,8 @@ using ..Consts
 using ..Consts: TIMEOUT_INTERVAL
 using ..API
 using ..API: AbstractWebview, AbstractPlatformImpl
-using ..Utils: CallbackHandler, on_message,
+using ..Utils: MessageCallback, CallbackHandler,
+    on_message,
     setup_dispatch, call_dispatch, clear_dispatch,
     set_dispatch_id
 
