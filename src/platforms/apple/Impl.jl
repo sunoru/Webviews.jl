@@ -79,7 +79,7 @@ end
 
 API.window_handle(w::Webview) = w.window
 # TODO: support multiple windows.
-API.terminate(w::Webview) =
+API.terminate(::Webview) =
     let app = get_shared_application()
         # Stop the main event loop instead of terminating the process.
         @msg_send Cvoid app a"stop:"sel C_NULL
@@ -172,12 +172,10 @@ function API.eval!(w::Webview, js::AbstractString)
 end
 
 function _timeout(_1, _2, timer::ID)
-    @show timer
     valid = @msg_send Bool timer a"isValid"sel
-    @show valid
     valid || return
-    fp = @msg_send ID timer a"userInfo"sel
-    @show fp
+    user_info = @msg_send ID timer a"userInfo"sel
+    fp = @msg_send Ptr{Cvoid} user_info a"pointerValue"sel
     call_dispatch(fp)
     interval = @msg_send Cdouble timer a"timeInterval"sel
     interval > 0 || return
@@ -194,9 +192,10 @@ function prepare_timeout()
     nothing
 end
 
+
 function API.set_timeout(f::Function, w::Webview, interval::Real; repeat=false)
     fp = setup_dispatch(f, w.callback_handler)
-    @show fp
+    user_info = @msg_send ID a"NSValue"cls a"valueWithPointer:"sel fp
     app = get_shared_application()
     timer_id = @msg_send(
         Ptr{Cvoid},
@@ -205,10 +204,9 @@ function API.set_timeout(f::Function, w::Webview, interval::Real; repeat=false)
         interval::Cdouble,
         app,
         a"webviewsjlTimeout:"sel,
-        fp,
+        user_info,
         repeat::Bool
     )
-    @show timer_id
     set_dispatch_id(fp, timer_id)
     fp
 end
