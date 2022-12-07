@@ -32,11 +32,7 @@ function setup_platform()
         C_NULL,
         true::Bool
     )
-    @ccall class_replaceMethod(
-        a"NSApplication"cls::Ptr{Cvoid}, a"webviewsjlTimeout:"sel::Ptr{Cvoid},
-        @cfunction(_timeout, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}))::Ptr{Cvoid},
-        "v@:@"::Cstring
-    )::Ptr{Cvoid}
+    prepare_timeout()
     nothing
 end
 
@@ -176,13 +172,22 @@ function API.eval!(w::Webview, js::AbstractString)
 end
 
 function _timeout(_1, _2, timer::ID)
-    @show valid = @msg_send Bool timer a"isValid"sel
+    valid = @msg_send Bool timer a"isValid"sel
     valid || return
     fp = @msg_send ID timer a"userInfo"sel
     call_dispatch(fp)
     interval = @msg_send Cdouble timer a"timeInterval"sel
     interval > 0 || return
     clear_timeout(fp)
+    nothing
+end
+
+function prepare_timeout()
+    @ccall class_replaceMethod(
+        a"NSApplication"cls::Ptr{Cvoid}, a"webviewsjlTimeout:"sel::Ptr{Cvoid},
+        @cfunction(_timeout, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}))::Ptr{Cvoid},
+        "v@:@"::Cstring
+    )::Ptr{Cvoid}
     nothing
 end
 
