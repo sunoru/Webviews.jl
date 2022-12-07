@@ -21,11 +21,16 @@ using Webviews
             @test size(webview) == (320, 240)
             resize!(webview, (240, 240))
             resize!(webview, (500, 500); hint=WEBVIEW_HINT_MAX)
-            html!(webview, html)
+            timer = set_timeout(webview, 0.5, repeat=true) do
+                @test true
+                clear_timeout(webview, timer)
+                html!(webview, html)
+            end
+            @test timer ≢ C_NULL
         elseif step == 2
             @test size(webview) == (240, 240)
-            dispatch(webview, true) do w, _
-                @test w == webview
+            dispatch(webview) do
+                @test true
             end
             navigate!(webview, "http://localhost:8080")
         elseif step == 3
@@ -45,4 +50,5 @@ using Webviews
     init!(webview, "run_test().catch(console.error)")
     navigate!(webview, "data:text/html,$(HTTP.escapeuri(html))")
     run(webview)
+    @test Test.get_testset().n_passed == 7
 end

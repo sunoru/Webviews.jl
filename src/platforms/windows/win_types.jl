@@ -13,6 +13,7 @@ end
 const DWORD = Culong
 const WM_APP = 0x8000
 const WM_QUIT = 0x0012
+const WM_TIMER = 0x0113
 
 const UINT_PTR = UInt
 const LONG_PTR = Int

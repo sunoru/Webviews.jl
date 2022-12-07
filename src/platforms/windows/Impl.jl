@@ -41,11 +41,11 @@ mutable struct Webview <: AbstractPlatformImpl
     const ptr::Ptr{Cvoid}
     const timer_id::Cuint
     const main_thread::DWORD
-    const dispatched::Set{Base.RefValue{Tuple{Webview,Function}}}
+    const callback_handler::CallbackHandler
 end
 
 function Webview(
-    _callback_handler::CallbackHandler,
+    callback_handler::CallbackHandler,
     debug::Bool,
     unsafe_window_handle::Ptr{Cvoid}
 )
@@ -56,10 +56,10 @@ function Webview(
     window = @ccall libwebview.webview_get_window(ptr::Ptr{Cvoid})::Ptr{Cvoid}
     timer_id = @ccall "user32".SetTimer(
         window::Ptr{Cvoid}, 0::UInt, TIMEOUT_INTERVAL::Cuint,
-        @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid}, Cuint, UInt, UInt32))::Ptr{Cvoid}::Ptr{Cvoid}
+        @cfunction(_event_loop_timeout, Cvoid, (Ptr{Cvoid}, Cuint, UInt, UInt32))::Ptr{Cvoid}
     )::UInt
     main_thread = @ccall GetCurrentThreadId()::DWORD
-    Webview(ptr, timer_id, main_thread, Set())
+    Webview(ptr, timer_id, main_thread, callback_handler)
 end
 Base.cconvert(::Type{Ptr{Cvoid}}, w::Webview) = w.ptr
 
@@ -74,14 +74,14 @@ function API.run(::Webview)
         res = @ccall "user32".GetMessageW(ref::Ptr{MSG}, C_NULL::Ptr{Cvoid}, 0::Cuint, 0::Cuint)::Cint
     ) ≠ -1
         msg = ref[]
-        if msg.hwnd ≢ C_NULL
+        if msg.hwnd ≢ C_NULL || msg.message == WM_TIMER
             @ccall "user32".TranslateMessage(ref::Ptr{MSG})::Bool
             @ccall "user32".DispatchMessageW(ref::Ptr{MSG})::Clong
             continue
         end
         if msg.message == WM_APP
             ptr = Ptr{Cvoid}(msg.lParam)
-            _dispatch(ptr)
+            call_dispatch(ptr)
         elseif msg.message == WM_QUIT
             return
         end
@@ -89,9 +89,7 @@ function API.run(::Webview)
 end
 
 function API.dispatch(f::Function, w::Webview)
-    ref = Ref{Tuple{Webview,Function}}((w, f))
-    push!(w.dispatched, ref)
-    ptr = pointer_from_objref(ref)
+    ptr = setup_dispatch(f, w.callback_handler)
     ret = @ccall "user32".PostThreadMessageW(
         w.main_thread::DWORD,
         WM_APP::Cuint,
@@ -99,7 +97,7 @@ function API.dispatch(f::Function, w::Webview)
         LPARAM(ptr)::LPARAM
     )::Bool
     if !ret
-        pop!(w.dispatched, ref)
+        clear_dispatch(ptr)
         @warn "Failed to dispatch function"
     end
 end
@@ -135,26 +133,25 @@ API.init!(w::Webview, js::AbstractString) = (
 API.eval!(w::Webview, js::AbstractString) = (
     (@ccall libwebview.webview_eval(w::Ptr{Cvoid}, js::Cstring)::Cvoid); w)
 
-_binding_wrapper(seq::Ptr{Cchar}, req::Ptr{Cchar}, ref::Ptr{Cvoid}) = begin
+function _binding_wrapper(seq::Ptr{Cchar}, req::Ptr{Cchar}, ptr::Ptr{Cvoid})
     try
-        cd = unsafe_pointer_to_objref(Ptr{Tuple{Function,Any}}(ref))
-        f, arg = cd
+        f = unsafe_pointer_to_objref(ptr)::MessageCallback
         seq_id = JSON3.read(unsafe_string(seq))
         args = JSON3.read(unsafe_string(req))
-        f(seq_id, copy(args), arg)
+        f(seq_id, copy(args))
     catch e
         @debug e
     end
     nothing
 end
 
-function API.bind_raw(f::Function, w::AbstractWebview, name::AbstractString, arg=nothing)
-    API.bind_raw(f, w.callback_handler, name, arg)
+function API.bind_raw(f::Function, w::AbstractWebview, name::AbstractString)
+    API.bind_raw(f, w.callback_handler, name)
     ref = w.callback_handler.callbacks[name]
     @ccall libwebview.webview_bind(
         w.platform::Ptr{Cvoid}, name::Cstring,
         @cfunction(_binding_wrapper, Cvoid, (Ptr{Cchar}, Ptr{Cchar}, Ptr{Cvoid}))::Ptr{Cvoid},
-        ref::Ptr{Cvoid}
+        pointer_from_objref(ref)::Ptr{Cvoid}
     )::Cvoid
     nothing
 end
@@ -163,5 +160,50 @@ function API.unbind(w::AbstractWebview, name::AbstractString)
     @ccall libwebview.webview_unbind(w.platform::Ptr{Cvoid}, name::Cstring)::Cvoid
     unbind(w.callback_handler, name)
 end
+
+const GlobalTimers = Dict{UInt,Ptr{Cvoid}}()
+
+function _clear_timeout(ptr::Ptr{Cvoid})
+    id = clear_dispatch(ptr)
+    isnothing(id) && return
+    @ccall "user32".KillTimer(C_NULL::Ptr{Cvoid}, id::UInt)::Bool
+    delete!(GlobalTimers, id)
+    nothing
+end
+
+function _timeout(_1, _2, timer_id, _4)
+    haskey(GlobalTimers, timer_id) || return
+    ptr = GlobalTimers[timer_id]
+    _clear_timeout(ptr)
+    call_dispatch(ptr)
+    nothing
+end
+function _timeout_repeat(_1, _2, timer_id, _4)
+    haskey(GlobalTimers, timer_id) || return
+    call_dispatch(GlobalTimers[timer_id])
+    nothing
+end
+
+function API.set_timeout(f::Function, w::Webview, interval::Real; repeat=false)
+    fp = setup_dispatch(f, w.callback_handler)
+    timer_id = @ccall "user32".SetTimer(
+        C_NULL::Ptr{Cvoid}, 0::UInt, round(Cuint, interval * 1000)::Cuint,
+        if repeat
+            @cfunction(_timeout_repeat, Cvoid, (Ptr{Cvoid}, Cuint, UInt, UInt32))
+        else
+            @cfunction(_timeout, Cvoid, (Ptr{Cvoid}, Cuint, UInt, UInt32))
+        end::Ptr{Cvoid}
+    )::UInt
+    if timer_id == 0
+        clear_dispatch(fp)
+        @warn "Failed to set timer"
+        return 0
+    end
+    set_dispatch_id(fp, timer_id)
+    GlobalTimers[timer_id] = fp
+    fp
+end
+
+API.clear_timeout(::Webview, timer_id::Ptr{Cvoid}) = _clear_timeout(timer_id)
 
 end
