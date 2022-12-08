@@ -13,13 +13,14 @@ using Webviews
     )
     window = window_handle(webview)
     @test window != C_NULL
-    @test string(webview) == "Webview (0 bindings): $window"
+    @test string(webview) == "Webview (0 bindings): pending"
     resize!(webview, (320, 240))
     html = """<html><body><h1>Hello from Julia v$VERSION</h1></body></html>"""
     step = 0
     bind(webview, "run_test") do _
         step += 1
         if step == 1
+            @test string(webview) == "Webview (2 bindings): running"
             @test size(webview) == (320, 240)
             resize!(webview, (240, 240))
             resize!(webview, (500, 500); hint=WEBVIEW_HINT_MAX)
@@ -44,6 +45,7 @@ using Webviews
         @test x == "<h1>Hello</h1>"
         close(server)
         terminate(webview)
+        close(webview)
         # On macOS, we need to send an event explicitly to let the event loop ends
         if WEBVIEW_PLATFORM == WEBVIEW_COCOA
             resize!(webview, (200, 200))
@@ -52,5 +54,6 @@ using Webviews
     init!(webview, "run_test().catch(console.error)")
     navigate!(webview, "data:text/html,$(HTTP.escapeuri(html))")
     run(webview)
-    @test Test.get_testset().n_passed == 8
+    @test string(webview) == "Webview (0 bindings): destroyed"
+    @test Test.get_testset().n_passed == 10
 end

@@ -65,10 +65,16 @@ mutable struct Webview <: API.AbstractWebview
 end
 Webview(width::Integer, height::Integer; kwargs...) = Webview((width, height); kwargs...)
 
-Base.show(io::IO, w::Webview) = print(
-    io,
-    "Webview ($(length(w.callback_handler.callbacks)) bindings): $(window_handle(w))"
-)
+function Base.show(io::IO, w::Webview)
+    status = w.status ≡ Consts.WEBVIEW_PENDING ? "pending" :
+        w.status ≡ Consts.WEBVIEW_RUNNING ? "running" :
+        w.status ≡ Consts.WEBVIEW_DESTORYED ? "destroyed" :
+        "unknown"
+    print(
+        io,
+        "Webview ($(length(w.callback_handler.callbacks)) bindings): $(status)"
+    )
+end
 
 function __init__()
     if PlatformImpl.check_dependency()

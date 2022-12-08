@@ -42,6 +42,13 @@ Stops the main loop. It is safe to call this function from another other backgro
 """
 @forward terminate(w)
 
+"""
+    close(w::Webview)
+
+Closes the webview window.
+"""
+@forward Base.close(w)
+
 @forward is_shown(w)
 
 """
@@ -73,9 +80,14 @@ function Base.run(w::AbstractWebview)
         @warn "Webview is already running"
         return
     end
-    w.status = WEBVIEW_PENDING
-    run(w.platform)
-    destroy(w)
+    w.status = WEBVIEW_RUNNING
+    try
+        run(w.platform)
+    catch e
+        @warn e
+    finally
+        destroy(w)
+    end
 end
 
 """
@@ -251,6 +263,7 @@ Clears a previously set timeout.
 @forward clear_timeout(w, timer_id::Ptr{Cvoid})
 
 const run = Base.run
+const close = Base.close
 const size = Base.size
 const resize! = Base.resize!
 const bind = Base.bind

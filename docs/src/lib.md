@@ -14,6 +14,7 @@ Webview
 WindowSizeHint
 run(::Webview)
 terminate
+Base.close(::Webview)
 destroy
 dispatch
 window_handle

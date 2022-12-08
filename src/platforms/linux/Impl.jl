@@ -110,6 +110,7 @@ end
 
 API.window_handle(w::Webview) = w.gtk_window_handle
 API.terminate(::Webview) = @gcall gtk_main_quit()
+API.close(w::Webview) = @gcall gtk_window_close(w.gtk_window_handle::Ptr{Cvoid})
 API.is_shown(::Webview) = 0 ≠ @gcall gtk_main_level()::Cuint
 API.run(::Webview) = @gcall gtk_main()
 
