@@ -11,7 +11,9 @@ using Webviews
         title="Test",
         debug=true
     )
-    @test window_handle(webview) != C_NULL
+    window = window_handle(webview)
+    @test window != C_NULL
+    @test string(webview) == "Webview (0 bindings): $window"
     resize!(webview, (320, 240))
     html = """<html><body><h1>Hello from Julia v$VERSION</h1></body></html>"""
     step = 0
@@ -50,5 +52,5 @@ using Webviews
     init!(webview, "run_test().catch(console.error)")
     navigate!(webview, "data:text/html,$(HTTP.escapeuri(html))")
     run(webview)
-    @test Test.get_testset().n_passed == 7
+    @test Test.get_testset().n_passed == 8
 end
