@@ -123,7 +123,7 @@ Sets the native window size.
 function Base.resize!(
     w::AbstractWebview,
     size::Tuple{Integer,Integer};
-    hint::Union{WindowSizeHint,Nothing}=WEBVIEW_HINT_NONE
+    hint::WindowSizeHint=WEBVIEW_HINT_NONE
 )
     resize!(w.platform, size, hint=hint)
     w

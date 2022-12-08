@@ -18,7 +18,7 @@ destroy
 dispatch
 window_handle
 title!
-resize!(::Webview)
+resize!(::Webview, ::Tuple{Integer, Integer}; hint::WindowSizeHint)
 navigate!
 html!
 init!
