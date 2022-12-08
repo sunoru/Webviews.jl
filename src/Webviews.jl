@@ -65,6 +65,11 @@ mutable struct Webview <: API.AbstractWebview
 end
 Webview(width::Integer, height::Integer; kwargs...) = Webview((width, height); kwargs...)
 
+Base.show(io::IO, w::Webview) = print(
+    io,
+    "Webview ($(length(w.callback_handler.callbacks)) bindings): $(window_handle(w))"
+)
+
 function __init__()
     if PlatformImpl.check_dependency()
         PlatformImpl.setup_platform()
