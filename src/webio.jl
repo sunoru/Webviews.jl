@@ -1,13 +1,3 @@
-using Preferences
-
-const WEBIO_ENABLED = !@load_preference("disable_webio", false)
-
-@static if !WEBIO_ENABLED
-
-webio_init!(::API.AbstractWebview) = nothing
-
-else
-
 using Sockets: Sockets
 using WebIO: WebIO
 
@@ -46,5 +36,3 @@ end
 
 API.init!(w::API.AbstractWebview, js::WebIO.JSString) = init!(w, js.s)
 API.eval!(w::API.AbstractWebview, js::WebIO.JSString) = eval!(w, js.s)
-
-end

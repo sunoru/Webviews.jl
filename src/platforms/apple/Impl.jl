@@ -87,7 +87,7 @@ API.terminate(::Webview) =
 function API.close(w::Webview)
     @msg_send Cvoid w.window a"close"sel
     # On macOS, we need to send an event explicitly to let the event loop ends
-    resize!(webview, (1, 1))
+    resize!(w, (1, 1))
     nothing
 end
 API.is_shown(w::Webview) = (

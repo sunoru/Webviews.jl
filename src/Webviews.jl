@@ -46,21 +46,25 @@ a `GtkWindow`, `NSWindow` or `HWND` pointer can be passed here.
 mutable struct Webview <: API.AbstractWebview
     const platform::PlatformImpl.Webview
     const callback_handler::Utils.CallbackHandler
+    const webio_enabled::Bool
     status::Consts.WebviewStatus
     function Webview(
         size::Tuple{Integer,Integer}=(1024, 768);
         title::AbstractString="",
         debug::Bool=false,
         size_fixed::Bool=false,
-        unsafe_window_handle::Ptr{Cvoid}=C_NULL
+        unsafe_window_handle::Ptr{Cvoid}=C_NULL,
+        enable_webio::Bool=true,
     )
         ch = Utils.CallbackHandler()
         platform = PlatformImpl.Webview(ch, debug, unsafe_window_handle)
         window_handle(platform) ≡ C_NULL && error("Failed to create webview window")
-        w = new(platform, ch, WEBVIEW_PENDING)
+        w = new(platform, ch, enable_webio, WEBVIEW_PENDING)
         API.resize!(w, size; hint=size_fixed ? WEBVIEW_HINT_FIXED : WEBVIEW_HINT_NONE)
         title!(w, title)
-        webio_init!(w)
+        if enable_webio
+            webio_init!(w)
+        end
         finalizer(destroy, w)
     end
 end
@@ -72,7 +76,7 @@ function Base.show(io::IO, w::Webview)
         w.status ≡ Consts.WEBVIEW_DESTORYED ? "destroyed" :
         "unknown"
     num_bindings = length(w.callback_handler.callbacks)
-    if WEBIO_ENABLED && w.status ≢ Consts.WEBVIEW_DESTORYED
+    if w.webio_enabled && w.status ≢ Consts.WEBVIEW_DESTORYED
         num_bindings -= 1
     end
     print(

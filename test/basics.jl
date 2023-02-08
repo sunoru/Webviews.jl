@@ -9,7 +9,8 @@ using Webviews
 
     webview = Webview(;
         title="Test",
-        debug=true
+        debug=true,
+        enable_webio=false,
     )
     window = window_handle(webview)
     @test window != C_NULL

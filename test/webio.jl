@@ -13,6 +13,7 @@ using Webviews
     on(obs) do x
         @test x
         terminate(w)
+        close(w)
     end
     scope(dom"button#mybutton"(
         events=Dict(
