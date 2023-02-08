@@ -3,7 +3,6 @@ using WebIO
 using Webviews
 
 @testset "WebIO tests" begin
-
     w = Webview(;
         title="WebIO Test",
         debug=true

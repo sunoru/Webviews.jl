@@ -3,11 +3,10 @@ using Webviews
 
 @testset "Webviews.jl" begin
     include("./basics.jl")
-    if WEBVIEW_PLATFORM ≡ WEBVIEW_COCOA
+
+    for testfile in ("webio.jl",)
         @test success(
-            `$(Base.julia_cmd()) $(joinpath(@__DIR__, "webio.jl"))`
+            `$(Base.julia_cmd()) $(joinpath(@__DIR__, testfile))`
         )
-    else
-        include("./webio.jl")
     end
 end
