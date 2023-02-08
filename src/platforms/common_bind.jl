@@ -2,22 +2,24 @@
 
 function API.bind_raw(f::Function, w::AbstractWebview, name::AbstractString)
     bind_raw(f, w.callback_handler, name)
-    js = "((function() { var name = '$name';
-        var RPC = window._rpc = (window._rpc || {nextSeq: 1});
+    name = JSON3.write(name)
+    js = "((function() {
+        const name = $name
+        const RPC = window._rpc = (window._rpc || {nextSeq: 1})
         window[name] = function() {
-            var seq = RPC.nextSeq++;
-            var promise = new Promise(function(resolve, reject) {
+            const seq = RPC.nextSeq++
+            const promise = new Promise((resolve, reject) => {
                 RPC[seq] = {
-                    resolve: resolve,
-                    reject: reject,
-                };
-            });
+                    resolve,
+                    reject,
+                }
+            })
             window.external.invoke(JSON.stringify({
                 id: seq,
                 method: name,
                 params: Array.prototype.slice.call(arguments),
-            }));
-            return promise;
+            }))
+            return promise
         }
     })())"
     init!(w, js)

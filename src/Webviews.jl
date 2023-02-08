@@ -60,6 +60,7 @@ mutable struct Webview <: API.AbstractWebview
         w = new(platform, ch, WEBVIEW_PENDING)
         API.resize!(w, size; hint=size_fixed ? WEBVIEW_HINT_FIXED : WEBVIEW_HINT_NONE)
         title!(w, title)
+        webio_init!(w)
         finalizer(destroy, w)
     end
 end
@@ -70,9 +71,13 @@ function Base.show(io::IO, w::Webview)
         w.status ≡ Consts.WEBVIEW_RUNNING ? "running" :
         w.status ≡ Consts.WEBVIEW_DESTORYED ? "destroyed" :
         "unknown"
+    num_bindings = length(w.callback_handler.callbacks)
+    if WEBIO_ENABLED && w.status ≢ Consts.WEBVIEW_DESTORYED
+        num_bindings -= 1
+    end
     print(
         io,
-        "Webview ($(length(w.callback_handler.callbacks)) bindings): $(status)"
+        "Webview ($num_bindings bindings): $(status)"
     )
 end
 
@@ -82,5 +87,7 @@ function __init__()
     end
     nothing
 end
+
+include("./webio.jl")
 
 end # module
