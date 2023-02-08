@@ -84,7 +84,12 @@ API.terminate(::Webview) =
         # Stop the main event loop instead of terminating the process.
         @msg_send Cvoid app a"stop:"sel C_NULL
     end
-API.close(w::Webview) = @msg_send Cvoid w.window a"close"sel
+function API.close(w::Webview)
+    @msg_send Cvoid w.window a"close"sel
+    # On macOS, we need to send an event explicitly to let the event loop ends
+    resize!(w, (1, 1))
+    nothing
+end
 API.is_shown(w::Webview) = (
     @msg_send Bool w.window a"isVisible"sel
 ) && @msg_send Bool get_shared_application() a"isRunning"sel

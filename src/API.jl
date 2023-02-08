@@ -15,6 +15,7 @@ export terminate,
     set_timeout,
     clear_timeout
 
+using Base64: Base64
 using JSON3: JSON3
 
 using ..Consts
@@ -151,10 +152,13 @@ Navigates webview to the given URL. URL may be a data URI, i.e.
 
 """
     html!(w::Webview, html::AbstractString)
+    html!(w::Webview, body)
 
 Set webview HTML directly.
+If `body` is not a string, such as a `WebIO.Node`, it will be converted to HTML first.
 """
 @forward html!(w, html::AbstractString)
+html!(w::AbstractWebview, html) = html!(w, Base64.stringmime(MIME"text/html"(), html))
 
 """
     init(w::Webview, js::AbstractString)
