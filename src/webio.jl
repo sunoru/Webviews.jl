@@ -6,8 +6,7 @@ struct WebIOWebviewComm{T<:API.AbstractWebview} <: WebIO.AbstractConnection
 end
 
 function Sockets.send(comm::WebIOWebviewComm, data)
-    @show data
-    @show s = JSON3.write(Dict(:type=>"webio", :data=>data))
+    s = JSON3.write(Dict(:type=>"webio", :data=>data))
     API.eval!(
         comm.webview,
         "window.external.webio_send($s)"
