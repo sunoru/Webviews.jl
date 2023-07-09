@@ -25,6 +25,9 @@ macro g_signal_connect(instance, signal, data, cf)
     end |> esc
 end
 
+const ActiveWindows = Set{Ptr{Cvoid}}()
+const ActiveWindowsLock = ReentrantLock()
+
 mutable struct Webview <: AbstractPlatformImpl
     const gtk_window_handle::Ptr{Cvoid}
     const webview_handle::Ptr{Cvoid}
@@ -43,13 +46,23 @@ mutable struct Webview <: AbstractPlatformImpl
         else
             unsafe_window_handle
         end
+        lock(ActiveWindowsLock) do
+            push!(ActiveWindows, window)
+        end
         webview = @gcall webkit_web_view_new()::Ptr{Cvoid}
         w = new(window, webview, callback_handler)
 
         @g_signal_connect(
             window, "destroy", w,
             @cfunction(
-                (_, w) -> terminate(unsafe_pointer_to_objref(Ptr{Webview}(w))),
+                (window, _) -> begin
+                    lock(ActiveWindowsLock) do
+                        delete!(ActiveWindows, window)
+                    end
+                    if isempty(ActiveWindows)
+                        _terminate()
+                    end
+                end,
                 Cvoid, (Ptr{Cvoid}, Ptr{Cvoid})
             )
         )
@@ -109,7 +122,8 @@ function get_string_from_js_result(r::Ptr{Cvoid})
 end
 
 API.window_handle(w::Webview) = w.gtk_window_handle
-API.terminate(::Webview) = @gcall gtk_main_quit()
+_terminate() = @gcall gtk_main_quit()
+API.terminate(::Webview) = _terminate()
 API.close(w::Webview) = @gcall gtk_window_close(w.gtk_window_handle::Ptr{Cvoid})
 API.is_shown(::Webview) = 0 ≠ @gcall gtk_main_level()::Cuint
 API.run(::Webview) = @gcall gtk_main()
