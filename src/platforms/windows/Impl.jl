@@ -149,7 +149,7 @@ function _binding_wrapper(seq::Ptr{Cchar}, req::Ptr{Cchar}, ptr::Ptr{Cvoid})
 end
 
 function API.bind_raw(f::Function, w::AbstractWebview, name::AbstractString)
-    API.bind_raw(f, w.callback_handler, name)
+    Utils.bind_raw(f, w.callback_handler, name)
     ref = w.callback_handler.callbacks[name]
     @ccall libwebview.webview_bind(
         w.platform::Ptr{Cvoid}, name::Cstring,
@@ -161,7 +161,7 @@ end
 
 function API.unbind(w::AbstractWebview, name::AbstractString)
     @ccall libwebview.webview_unbind(w.platform::Ptr{Cvoid}, name::Cstring)::Cvoid
-    unbind(w.callback_handler, name)
+    Utils.unbind(w.callback_handler, name)
 end
 
 const GlobalTimers = Dict{UInt,Ptr{Cvoid}}()
