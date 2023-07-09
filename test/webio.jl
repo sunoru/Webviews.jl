@@ -11,8 +11,8 @@ using Webviews
     obs = Observable(scope, "obs", false)
     on(obs) do x
         @test x
-        terminate(w)
         close(w)
+        terminate()
     end
     scope(dom"button#mybutton"(
         events=Dict(

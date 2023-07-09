@@ -64,7 +64,7 @@ end
 Base.cconvert(::Type{Ptr{Cvoid}}, w::Webview) = w.ptr
 
 API.window_handle(w::Webview) = @ccall libwebview.webview_get_window(w::Ptr{Cvoid})::Ptr{Cvoid}
-API.terminate(w::Webview) = @ccall libwebview.webview_terminate(w::Ptr{Cvoid})::Cvoid
+terminate() = @ccall "user32".PostQuitMessage(0::Cint)::Cvoid
 API.close(w::Webview) = @ccall "user32".DestroyWindow(window_handle(w)::Ptr{Cvoid})::Bool
 API.destroy(w::Webview) = @ccall libwebview.webview_destroy(w::Ptr{Cvoid})::Cvoid
 API.is_shown(w::Webview) = @ccall "user32".IsWindow(window_handle(w)::Ptr{Cvoid})::Bool
@@ -80,7 +80,9 @@ function API.run(::Webview)
             @ccall "user32".DispatchMessageW(ref::Ptr{MSG})::Clong
             continue
         end
-        if msg.message == WM_APP
+        if msg.message == WM_DESTROY
+            on_window_destroy(msg.hwnd)
+        elseif msg.message == WM_APP
             ptr = Ptr{Cvoid}(msg.lParam)
             call_dispatch(ptr)
         elseif msg.message == WM_QUIT

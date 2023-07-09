@@ -2,11 +2,13 @@ using Libdl
 
 using JSON3: JSON3
 
+using ..Webviews: Webviews
 using ..Consts
 using ..Consts: TIMEOUT_INTERVAL
 using ..API
 using ..API: AbstractWebview, AbstractPlatformImpl
-using ..Utils: MessageCallback, CallbackHandler,
+using ..Utils: Utils,
+    MessageCallback, CallbackHandler,
     on_message,
     setup_dispatch, call_dispatch, clear_dispatch,
     set_dispatch_id

@@ -45,8 +45,8 @@ using Webviews
     bind(w, "end_test") do (x,)
         @test x == "<h1>Hello</h1>"
         close(server)
-        terminate(w)
         close(w)
+        terminate()
     end
     init!(w, "run_test().catch(console.error)")
     navigate!(w, "data:text/html,$(HTTP.escapeuri(html))")

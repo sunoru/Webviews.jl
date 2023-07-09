@@ -67,12 +67,11 @@ function Webview(
 end
 
 API.window_handle(w::Webview) = w.window
-_terminate() =
+terminate() =
     let app = get_shared_application()
         # Stop the main event loop instead of terminating the process.
         @msg_send Cvoid app a"stop:"sel C_NULL
     end
-API.terminate(::Webview) = _terminate()
 function API.close(w::Webview)
     @msg_send Cvoid w.window a"close"sel
     # On macOS, we need to send an event explicitly to let the event loop ends
