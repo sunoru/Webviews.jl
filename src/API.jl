@@ -62,7 +62,7 @@ function destroy(w::AbstractWebview)
     for key in keys(w.callback_handler.callbacks)
         unbind(w, key)
     end
-    is_shown(w.platform) && terminate(w)
+    is_shown(w.platform) && close(w)
     destroy(w.platform)
     w.status = WEBVIEW_DESTORYED
     nothing

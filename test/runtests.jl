@@ -4,7 +4,7 @@ using Webviews
 @testset "Webviews.jl" begin
     include("./basics.jl")
 
-    for testfile in ("webio.jl",)
+    for testfile in ("webio.jl", "multiple.jl")
         @test success(
             `$(Base.julia_cmd()) $(joinpath(@__DIR__, testfile))`
         )
