@@ -54,7 +54,7 @@ function get_window_delegate_class()
     @ccall objc_registerClassPair(cls::ID)::Cvoid
     cls
 end
-function cerate_window_delegate(w::Webview)
+function create_window_delegate(w::Webview)
     cls = get_window_delegate_class()
     instance = @msg_send ID cls a"new"sel
     @ccall objc_setAssociatedObject(
