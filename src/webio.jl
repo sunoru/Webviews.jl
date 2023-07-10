@@ -16,6 +16,7 @@ end
 Base.isopen(comm::WebIOWebviewComm) = API.is_shown(comm.webview)
 
 function webio_init!(w::API.AbstractWebview)
+    isfile(WebIO.bundlepath) || WebIO.download_js_bundles()
     webio_js = read(WebIO.bundlepath, String)
     init!(w, webio_js)
     comm = WebIOWebviewComm(w)

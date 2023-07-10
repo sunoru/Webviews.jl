@@ -22,11 +22,8 @@ jobs:
       fail-fast: false
       matrix:
         julia-arch: [x64]
-        julia-version: ["1.8", "~1.9.0-0", "nightly"]
+        julia-version: ["1.8", "1.9", "nightly"]
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        exclude:
-          - os: ubuntu-latest
-            julia-version: "1.8"
         include:
           - os: ubuntu-latest
             prefix: xvfb-run

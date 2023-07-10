@@ -49,7 +49,7 @@ mutable struct Webview <: AbstractPlatformImpl
         @g_signal_connect(
             window, "destroy", w,
             @cfunction(
-                (_, w) -> terminate(unsafe_pointer_to_objref(Ptr{Webview}(w))),
+                (window, _) -> (Webviews.on_window_destroy(window); nothing),
                 Cvoid, (Ptr{Cvoid}, Ptr{Cvoid})
             )
         )
@@ -109,7 +109,7 @@ function get_string_from_js_result(r::Ptr{Cvoid})
 end
 
 API.window_handle(w::Webview) = w.gtk_window_handle
-API.terminate(::Webview) = @gcall gtk_main_quit()
+terminate() = @gcall gtk_main_quit()
 API.close(w::Webview) = @gcall gtk_window_close(w.gtk_window_handle::Ptr{Cvoid})
 API.is_shown(::Webview) = 0 ≠ @gcall gtk_main_level()::Cuint
 API.run(::Webview) = @gcall gtk_main()

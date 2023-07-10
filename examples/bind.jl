@@ -33,7 +33,7 @@ bind(webview, "resize") do _
 end
 bind(println, webview, "log")
 bind(webview, "terminate") do _
-    terminate(webview)
+    terminate()
 end
 
 run(webview)

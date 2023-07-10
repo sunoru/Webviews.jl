@@ -8,7 +8,7 @@ function get_associated_webview(self::ID)
     unsafe_pointer_to_objref(Ptr{Webview}(w))
 end
 
-function create_app_delegate(w::Webview)
+function create_app_delegate()
     cls = @ccall objc_allocateClassPair(a"NSResponder"cls::ID, "WebviewAppDelegate"::Cstring, 0::Int)::ID
     @ccall class_addProtocol(
         cls::ID,
@@ -19,34 +19,56 @@ function create_app_delegate(w::Webview)
         a"applicationShouldTerminateAfterLastWindowClosed:"sel::SEL,
         @cfunction(
             (self, _2, _3) -> begin
-                w = get_associated_webview(self)
-                terminate(w)
+                _terminate()
                 false
             end,
             Bool, (ID, SEL, ID)
         )::Ptr{Cvoid},
         "c@:@"::Cstring
     )::Bool
-    if w.parent_window ≡ C_NULL
-        @ccall class_addMethod(
-            cls::ID,
-            a"applicationDidFinishLaunching:"sel::SEL,
-            @cfunction(
-                (self, _, notification) -> begin
-                    app = @msg_send ID notification a"object"sel
-                    w = get_associated_webview(self)
-                    on_application_did_finish_launching(w, self, app)
-                end,
-                Cvoid, (ID, SEL, ID)
-            )::Ptr{Cvoid},
-            "v@:@"::Cstring
-        )::Bool
-    end
     @ccall objc_registerClassPair(cls::ID)::Ptr{Cvoid}
     @msg_send ID cls a"new"sel
 end
 
-function create_webkit_ui_delegate()
+function get_window_delegate_class()
+    cls = @ccall objc_getClass("WebviewWindowDelegate"::Cstring)::ID
+    cls == C_NULL || return cls
+    cls = @ccall objc_allocateClassPair(a"NSResponder"cls::ID, "WebviewWindowDelegate"::Cstring, 0::Int)::ID
+    @ccall class_addProtocol(
+        cls::ID,
+        (@ccall objc_getProtocol("NSWindowDelegate"::Cstring)::ID)::ID
+    )::Bool
+    @ccall class_addMethod(
+        cls::ID,
+        a"windowWillClose:"sel::SEL,
+        @cfunction(
+            (self, _2, _3) -> begin
+                w = get_associated_webview(self)
+                window = window_handle(w)
+                Webviews.on_window_close(window)
+            end,
+            Cvoid, (ID, SEL, ID)
+        )::Ptr{Cvoid},
+        "v@:@"::Cstring
+    )::Bool
+    @ccall objc_registerClassPair(cls::ID)::Cvoid
+    cls
+end
+function create_window_delegate(w::Webview)
+    cls = get_window_delegate_class()
+    instance = @msg_send ID cls a"new"sel
+    @ccall objc_setAssociatedObject(
+        instance::ID,
+        ASSOCIATED_KEY::Cstring,
+        pointer_from_objref(w)::ID,
+        0::UInt  # OBJC_ASSOCIATION_ASSIGN
+    )::ID
+    instance
+end
+
+function get_webkit_ui_delegate_class()
+    cls = @ccall objc_getClass("WebkitUIDelegate"::Cstring)::ID
+    cls == C_NULL || return cls
     cls = @ccall objc_allocateClassPair(a"NSObject"cls::ID, "WebkitUIDelegate"::Cstring, 0::Int)::ID
     @ccall class_addProtocol(
         cls::ID,
@@ -83,10 +105,16 @@ function create_webkit_ui_delegate()
         "v@:@@@@"::Cstring
     )::Bool
     @ccall objc_registerClassPair(cls::ID)::Cvoid
+    cls
+end
+function create_webkit_ui_delegate()
+    cls = get_webkit_ui_delegate_class()
     @msg_send ID cls a"new"sel
 end
 
-function create_script_message_handler(w::Webview)
+function get_script_message_handler_class()
+    cls = @ccall objc_getClass("WebkitScriptMessageHandler"::Cstring)::ID
+    cls == C_NULL || return cls
     cls = @ccall objc_allocateClassPair(a"NSResponder"cls::ID, "WebkitScriptMessageHandler"::Cstring, 0::Int)::ID
     @ccall class_addProtocol(
         cls::ID,
@@ -110,6 +138,10 @@ function create_script_message_handler(w::Webview)
         "v@:@@"::Cstring
     )::Bool
     @ccall objc_registerClassPair(cls::ID)::Cvoid
+    cls
+end
+function create_script_message_handler(w::Webview)
+    cls = get_script_message_handler_class()
     instance = @msg_send ID cls a"new"sel
     @ccall objc_setAssociatedObject(
         instance::ID,
@@ -129,7 +161,7 @@ function is_app_bundled()
     bundled = @msg_send Bool bundle_path a"hasSuffix:"sel a".app"str
 end
 
-function on_application_did_finish_launching(w::Webview, _self::ID, app::ID)
+function on_application_did_finish_launching(w::Webview, app::ID)
     if w.parent_window ≡ C_NULL
         @msg_send Cvoid app a"stop:"sel C_NULL
     end
@@ -152,6 +184,7 @@ function on_application_did_finish_launching(w::Webview, _self::ID, app::ID)
     else
         w.parent_window
     end
+    create_window_delegate(w)
 
     # Webview
     config = w.config = @msg_send ID a"WKWebViewConfiguration"cls a"new"sel

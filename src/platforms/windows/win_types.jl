@@ -11,6 +11,7 @@ struct RECT
 end
 
 const DWORD = Culong
+const WM_DESTROY = 0x0002
 const WM_APP = 0x8000
 const WM_QUIT = 0x0012
 const WM_TIMER = 0x0113

@@ -64,7 +64,7 @@ end
 Base.cconvert(::Type{Ptr{Cvoid}}, w::Webview) = w.ptr
 
 API.window_handle(w::Webview) = @ccall libwebview.webview_get_window(w::Ptr{Cvoid})::Ptr{Cvoid}
-API.terminate(w::Webview) = @ccall libwebview.webview_terminate(w::Ptr{Cvoid})::Cvoid
+terminate() = @ccall "user32".PostQuitMessage(0::Cint)::Cvoid
 API.close(w::Webview) = @ccall "user32".DestroyWindow(window_handle(w)::Ptr{Cvoid})::Bool
 API.destroy(w::Webview) = @ccall libwebview.webview_destroy(w::Ptr{Cvoid})::Cvoid
 API.is_shown(w::Webview) = @ccall "user32".IsWindow(window_handle(w)::Ptr{Cvoid})::Bool
@@ -84,7 +84,14 @@ function API.run(::Webview)
             ptr = Ptr{Cvoid}(msg.lParam)
             call_dispatch(ptr)
         elseif msg.message == WM_QUIT
-            return
+            # A workaround for multiple windows.
+            ws = lock(Webviews.ActiveWindowsLock) do
+                collect(Webviews.ActiveWindows)
+            end
+            for w in ws
+                API.is_shown(w.second) || Webviews.on_window_destroy(w.first)
+            end
+            isempty(ws) && return
         end
     end
 end
@@ -147,7 +154,7 @@ function _binding_wrapper(seq::Ptr{Cchar}, req::Ptr{Cchar}, ptr::Ptr{Cvoid})
 end
 
 function API.bind_raw(f::Function, w::AbstractWebview, name::AbstractString)
-    API.bind_raw(f, w.callback_handler, name)
+    Utils.bind_raw(f, w.callback_handler, name)
     ref = w.callback_handler.callbacks[name]
     @ccall libwebview.webview_bind(
         w.platform::Ptr{Cvoid}, name::Cstring,
@@ -159,7 +166,7 @@ end
 
 function API.unbind(w::AbstractWebview, name::AbstractString)
     @ccall libwebview.webview_unbind(w.platform::Ptr{Cvoid}, name::Cstring)::Cvoid
-    unbind(w.callback_handler, name)
+    Utils.unbind(w.callback_handler, name)
 end
 
 const GlobalTimers = Dict{UInt,Ptr{Cvoid}}()

@@ -1,5 +1,4 @@
 module AppleImpl
-# TODO
 
 include("../common.jl")
 include("../common_bind.jl")
@@ -32,6 +31,9 @@ function setup_platform()
         C_NULL,
         true::Bool
     )
+    delegate = create_app_delegate()
+    app = get_shared_application()
+    @msg_send Cvoid app a"setDelegate:"sel delegate
     prepare_timeout()
     nothing
 end
@@ -59,27 +61,13 @@ function Webview(
         debug,
         callback_handler
     )
-    this_ptr = pointer_from_objref(w)
     app = get_shared_application()
-    delegate = create_app_delegate(w)
-    @ccall objc_setAssociatedObject(
-        delegate::ID,
-        ASSOCIATED_KEY::Cstring,
-        this_ptr::ID,
-        0::UInt  # OBJC_ASSOCIATION_ASSIGN
-    )::ID
-    @msg_send Cvoid app a"setDelegate:"sel delegate
-    if unsafe_window_handle ≡ C_NULL
-        @msg_send Cvoid app a"run"sel
-    else
-        on_application_did_finish_launching(w, delegate, app)
-    end
+    on_application_did_finish_launching(w, app)
     w
 end
 
 API.window_handle(w::Webview) = w.window
-# TODO: support multiple windows.
-API.terminate(::Webview) =
+terminate() =
     let app = get_shared_application()
         # Stop the main event loop instead of terminating the process.
         @msg_send Cvoid app a"stop:"sel C_NULL

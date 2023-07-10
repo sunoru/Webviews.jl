@@ -18,8 +18,10 @@ export terminate,
 using Base64: Base64
 using JSON3: JSON3
 
+using ..Webviews: Webviews
 using ..Consts
 using ..Consts: WebviewStatus, WEBVIEW_PENDING, WEBVIEW_RUNNING, WEBVIEW_DESTORYED
+using ..Utils
 abstract type AbstractWebview end
 abstract type AbstractPlatformImpl end
 
@@ -35,13 +37,11 @@ macro forward(expr)
 end
 
 """
-    terminate(w::Webview)
+    terminate()
 
 Stops the main loop. It is safe to call this function from another other background thread.
-
-**Note:** This function is not working on macOS.
 """
-@forward terminate(w)
+terminate() = Webviews.PlatformImpl.terminate()
 
 """
     close(w::Webview)
@@ -59,12 +59,14 @@ Destroys the webview and closes the window along with freeing all internal resou
 """
 function destroy(w::AbstractWebview)
     w.status ≡ WEBVIEW_DESTORYED && return
+    window = window_handle(w.platform)
     for key in keys(w.callback_handler.callbacks)
         unbind(w, key)
     end
-    is_shown(w.platform) && terminate(w)
+    is_shown(w.platform) && close(w)
     destroy(w.platform)
     w.status = WEBVIEW_DESTORYED
+    Webviews.on_window_destroy(window)
     nothing
 end
 destroy(::AbstractPlatformImpl) = nothing
@@ -74,6 +76,8 @@ destroy(::AbstractPlatformImpl) = nothing
 
 Runs the webview event loop. Runs the main event loop until it's terminated.
 After this function exits, the webview is automatically destroyed.
+
+**Note**: This function will show all webview windows that were created.
 """
 function Base.run(w::AbstractWebview)
     w.status ≡ WEBVIEW_DESTORYED && error("Webview is already destroyed")

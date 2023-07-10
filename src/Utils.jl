@@ -3,8 +3,6 @@ module Utils
 using FunctionWrappers: FunctionWrapper
 using JSON3: JSON3
 
-using ..API
-
 const MessageCallback = FunctionWrapper{Nothing,Tuple{Int,Vector{Any}}}
 
 # JuliaLang/julia #269
@@ -37,7 +35,7 @@ function on_message(ch::CallbackHandler, s::Ptr{Cchar})
     nothing
 end
 
-function API.bind_raw(f::Function, ch::CallbackHandler, name::AbstractString)
+function bind_raw(f::Function, ch::CallbackHandler, name::AbstractString)
     haskey(ch.callbacks, name) && return
     ch.callbacks[name] = MessageCallback() do seq, args
         f(seq, args)
@@ -46,7 +44,7 @@ function API.bind_raw(f::Function, ch::CallbackHandler, name::AbstractString)
     nothing
 end
 
-function API.unbind(ch::CallbackHandler, name::AbstractString)
+function unbind(ch::CallbackHandler, name::AbstractString)
     delete!(ch.callbacks, name)
     nothing
 end

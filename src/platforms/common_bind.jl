@@ -1,7 +1,7 @@
 # This file is only loaded on non-Windows platforms.
 
 function API.bind_raw(f::Function, w::AbstractWebview, name::AbstractString)
-    bind_raw(f, w.callback_handler, name)
+    Utils.bind_raw(f, w.callback_handler, name)
     name = JSON3.write(name)
     js = "((function() {
         const name = $name
@@ -27,4 +27,4 @@ function API.bind_raw(f::Function, w::AbstractWebview, name::AbstractString)
     nothing
 end
 
-API.unbind(w::AbstractWebview, name::AbstractString) = unbind(w.callback_handler, name)
+API.unbind(w::AbstractWebview, name::AbstractString) = Utils.unbind(w.callback_handler, name)
