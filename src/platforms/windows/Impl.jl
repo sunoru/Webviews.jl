@@ -80,13 +80,18 @@ function API.run(::Webview)
             @ccall "user32".DispatchMessageW(ref::Ptr{MSG})::Clong
             continue
         end
-        if msg.message == WM_DESTROY
-            on_window_destroy(msg.hwnd)
-        elseif msg.message == WM_APP
+        if msg.message == WM_APP
             ptr = Ptr{Cvoid}(msg.lParam)
             call_dispatch(ptr)
         elseif msg.message == WM_QUIT
-            return
+            # A workaround for multiple windows.
+            ws = lock(Webviews.ActiveWindowsLock) do
+                collect(Webviews.ActiveWindows)
+            end
+            for w in ws
+                API.is_shown(w.second) || Webviews.on_window_destroy(w.first)
+            end
+            isempty(ws) && return
         end
     end
 end
