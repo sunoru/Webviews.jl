@@ -76,6 +76,8 @@ destroy(::AbstractPlatformImpl) = nothing
 
 Runs the webview event loop. Runs the main event loop until it's terminated.
 After this function exits, the webview is automatically destroyed.
+
+**Note**: This function will show all webview windows that were created.
 """
 function Base.run(w::AbstractWebview)
     w.status ≡ WEBVIEW_DESTORYED && error("Webview is already destroyed")
